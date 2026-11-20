@@ -140,10 +140,10 @@ public class BlockPortalShape {
         ).collect(Collectors.toSet());
         
         BlockPos[] cornerOffsets = {
-            new BlockPos(directions[0].getUnitVec3i()).offset(directions[1].getUnitVec3i()),
-            new BlockPos(directions[1].getUnitVec3i()).offset(directions[2].getUnitVec3i()),
-            new BlockPos(directions[2].getUnitVec3i()).offset(directions[3].getUnitVec3i()),
-            new BlockPos(directions[3].getUnitVec3i()).offset(directions[0].getUnitVec3i())
+            BlockPos.ZERO.offset(directions[0].getUnitVec3i()).offset(directions[1].getUnitVec3i()),
+            BlockPos.ZERO.offset(directions[1].getUnitVec3i()).offset(directions[2].getUnitVec3i()),
+            BlockPos.ZERO.offset(directions[2].getUnitVec3i()).offset(directions[3].getUnitVec3i()),
+            BlockPos.ZERO.offset(directions[3].getUnitVec3i()).offset(directions[0].getUnitVec3i())
         };
         
         frameAreaWithCorner = area.stream().flatMap(

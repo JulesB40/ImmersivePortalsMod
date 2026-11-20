@@ -429,7 +429,7 @@ public class PortalCommand {
                 .executes(context -> processPortalTargetedCommand(
                     context,
                     portal -> {
-                        Component name = ComponentArgument.getComponent(context, "name");
+                        Component name = ComponentArgument.getRawComponent(context, "name");
                         portal.setCustomName(name);
                     }
                 ))
@@ -609,7 +609,7 @@ public class PortalCommand {
                             
                             ServerPlayer player = context.getSource().getPlayerOrException();
                             Vec3 viewVector = player.getLookAngle();
-                            Direction facing = Direction.getNearest(
+                            Direction facing = Direction.getApproximateNearest(
                                 viewVector.x, viewVector.y, viewVector.z
                             );
                             Vec3 offset = Vec3.atLowerCornerOf(facing.getUnitVec3i()).scale(distance);
@@ -640,7 +640,7 @@ public class PortalCommand {
                             
                             ServerPlayer player = context.getSource().getPlayerOrException();
                             Vec3 viewVector = player.getLookAngle();
-                            Direction facing = Direction.getNearest(
+                            Direction facing = Direction.getApproximateNearest(
                                 viewVector.x, viewVector.y, viewVector.z
                             );
                             Vec3 offset = Vec3.atLowerCornerOf(facing.getUnitVec3i()).scale(distance);
@@ -1089,7 +1089,7 @@ public class PortalCommand {
         BlockPos origin = BlockPos.containing(portal.getOriginPos());
         
         Direction portalNormalDirection =
-            Direction.getNearest(portal.getNormal().x, portal.getNormal().y, portal.getNormal().z);
+            Direction.getApproximateNearest(portal.getNormal().x, portal.getNormal().y, portal.getNormal().z);
         
         Level world = portal.level();
         
@@ -2238,7 +2238,7 @@ public class PortalCommand {
     public static void sendPortalInfo(Consumer<Component> func, Portal portal) {
         func.accept(
             McHelper.compoundTagToTextSorted(
-                portal.saveWithoutId(new CompoundTag()),
+                qouteall.imm_ptl.core.mc_utils.NbtValueIO.saveEntityWithoutId(portal),
                 " ",
                 0
             )
@@ -2448,9 +2448,9 @@ public class PortalCommand {
     private static void updateEntityFullNbt(Entity entity, CompoundTag nbt) {
         nbt.remove("id");
         nbt.remove("UUID"); // not allowed to change UUID
-        CompoundTag result = entity.saveWithoutId(new CompoundTag());
+        CompoundTag result = qouteall.imm_ptl.core.mc_utils.NbtValueIO.saveEntityWithoutId(entity);
         result.merge(nbt);
-        entity.load(result);
+        qouteall.imm_ptl.core.mc_utils.NbtValueIO.loadEntity(entity, result);
     }
     
     private static void registerEulerCommands(LiteralArgumentBuilder<CommandSourceStack> builder) {

@@ -3,18 +3,9 @@
   "package": "qouteall.imm_ptl.core.compat.mixin",
   "compatibilityLevel": "JAVA_25",
   "plugin": "qouteall.imm_ptl.core.compat.IPCompatMixinPlugin",
-  "mixins": [
-    "sodium.IESodiumWorldRenderer",
-    "sodium.MixinSodiumDefaultShaderInterface",
-    "sodium.MixinSodiumFlawlessFrames",
-    "sodium.MixinSodiumOcclusionCuller",
-    "sodium.MixinSodiumRenderRegion",
-    "sodium.MixinSodiumRenderSectionManager",
-    "sodium.MixinSodiumShaderLoader",
-    "sodium.MixinSodiumViewport",
-    "sodium.MixinSodiumWorldRenderer"
-  ],
+  "mixins": [],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "client": []
 }

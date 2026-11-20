@@ -222,7 +222,7 @@ public class PlayerChunkLoading {
         ((AttachmentTargetImpl) chunk).fabric_computeInitialSyncChanges(player, changes::add);
         
         if (!changes.isEmpty()) {
-            AttachmentChange.partitionAndSendPackets(changes, player);
+            net.fabricmc.fabric.impl.attachment.sync.AttachmentSync.trySync(changes, player);
         }
     }
     

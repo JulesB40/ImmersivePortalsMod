@@ -2,7 +2,6 @@ package qouteall.imm_ptl.core.portal;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.player.LocalPlayer;
@@ -24,12 +23,15 @@ import qouteall.q_misc_util.my_util.IntBox;
 
 public class LoadingIndicatorEntity extends Entity {
     public static final EntityType<LoadingIndicatorEntity> entityType =
-        FabricEntityTypeBuilder.create(
-            MobCategory.MISC,
-            (EntityType.EntityFactory<LoadingIndicatorEntity>) LoadingIndicatorEntity::new
-        ).dimensions(
-            EntityDimensions.fixed(1, 1)
-        ).fireImmune().trackable(96, 20).build();
+        EntityType.Builder.of(
+            (EntityType.EntityFactory<LoadingIndicatorEntity>) LoadingIndicatorEntity::new,
+            MobCategory.MISC
+        ).sized(1, 1).fireImmune().clientTrackingRange(96 / 16).updateInterval(20).build(
+            net.minecraft.resources.ResourceKey.create(
+                net.minecraft.core.registries.Registries.ENTITY_TYPE,
+                net.minecraft.resources.Identifier.fromNamespaceAndPath("immersive_portals", "loading_indicator")
+            )
+        );
     
     private static final EntityDataAccessor<Component> TEXT = SynchedEntityData.defineId(
         LoadingIndicatorEntity.class, EntityDataSerializers.COMPONENT
@@ -112,13 +114,29 @@ public class LoadingIndicatorEntity extends Entity {
         builder.define(BOX_HIGH_POS, BlockPos.ZERO);
     }
     
+
     @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {
-    
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel level, net.minecraft.world.damagesource.DamageSource source, float damage) {
+        return false;
     }
     
     @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {
+    protected final void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+        readAdditionalNbt(qouteall.imm_ptl.core.mc_utils.NbtValueIO.readAll(input));
+    }
+    
+    @Override
+    protected final void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+        CompoundTag tag = new CompoundTag();
+        addAdditionalNbt(tag);
+        qouteall.imm_ptl.core.mc_utils.NbtValueIO.writeAll(output, tag);
+    }
+    
+    protected void readAdditionalNbt(CompoundTag tag) {
+    
+    }
+    
+    protected void addAdditionalNbt(CompoundTag tag) {
     
     }
     
@@ -148,7 +166,7 @@ public class LoadingIndicatorEntity extends Entity {
     
     @Environment(EnvType.CLIENT)
     private void showMessageClient() {
-        Gui inGameHud = Minecraft.getInstance().gui;
+        net.minecraft.client.gui.Hud inGameHud = Minecraft.getInstance().gui.hud;
         inGameHud.setOverlayMessage(
             getText(), false
         );

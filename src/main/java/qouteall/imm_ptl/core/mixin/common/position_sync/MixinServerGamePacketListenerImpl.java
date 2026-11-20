@@ -1,5 +1,8 @@
 package qouteall.imm_ptl.core.mixin.common.position_sync;
 
+import net.minecraft.world.entity.PositionMoveRotation;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
@@ -173,17 +176,20 @@ public abstract class MixinServerGamePacketListenerImpl implements IEServerPlayN
     }
     
     /**
-     * @reason make PlayerPositionLookS2CPacket contain dimension data and do some special handling
-     * @author qouteall
+     * Make the player position packet contain dimension data and do some special handling.
+     * {@link ServerGamePacketListenerImpl#teleport(PositionMoveRotation, Set)}
      */
-    @Overwrite
+    @Inject(
+        method = "teleport(Lnet/minecraft/world/entity/PositionMoveRotation;Ljava/util/Set;)V",
+        at = @At("HEAD"), cancellable = true
+    )
     @IPVanillaCopy
-    public void teleport(
-        double x, double y, double z, float yaw, float pitch,
-        Set<Relative> relativeAttrs
+    private void onTeleport(
+        PositionMoveRotation destination, Set<Relative> relatives, CallbackInfo ci
     ) {
-        // it may request teleport while this.player is marked removed during respawn
+        ci.cancel();
         
+        // it may request teleport while this.player is marked removed during respawn
         if (player.getRemovalReason() != null) {
             LOGGER.error(
                 "[ImmPtl] Tries to send player pos packet to a removed player {}",
@@ -194,34 +200,25 @@ public abstract class MixinServerGamePacketListenerImpl implements IEServerPlayN
         
         if (IPConfig.getConfig().serverTeleportLogging) {
             LOGGER.info(
-                "Teleporting player {} to {} {} {} {}",
-                player, player.level().dimension().identifier(), x, y, z
+                "Teleporting player {} to {} {}",
+                player, player.level().dimension().identifier(), destination.position()
             );
         }
         
-        double xBase = relativeAttrs.contains(Relative.X) ? this.player.getX() : 0.0;
-        double yBase = relativeAttrs.contains(Relative.Y) ? this.player.getY() : 0.0;
-        double zBase = relativeAttrs.contains(Relative.Z) ? this.player.getZ() : 0.0;
-        float yRotBase = relativeAttrs.contains(Relative.Y_ROT) ? this.player.getYRot() : 0.0f;
-        float xRotBase = relativeAttrs.contains(Relative.X_ROT) ? this.player.getXRot() : 0.0f;
-        
-        this.awaitingPositionFromClient = new Vec3(x, y, z);
-        this.ip_dimOfAwaitingPosition = player.level().dimension();
+        this.awaitingTeleportTime = this.tickCount;
         if (++this.awaitingTeleport == Integer.MAX_VALUE) {
             this.awaitingTeleport = 0;
         }
         
-        this.awaitingTeleportTime = this.tickCount;
-        this.player.absSnapTo(x, y, z, yaw, pitch);
-        ClientboundPlayerPositionPacket lookPacket = new ClientboundPlayerPositionPacket(
-            x - xBase, y - yBase, z - zBase,
-            yaw - yRotBase, pitch - xRotBase,
-            relativeAttrs, this.awaitingTeleport
-        );
+        this.player.teleportSetPosition(destination, relatives);
+        this.awaitingPositionFromClient = this.player.position();
+        this.ip_dimOfAwaitingPosition = player.level().dimension();
         
-        ((IEPlayerPositionLookS2CPacket) lookPacket).ip_setPlayerDimension(player.level().dimension());
+        ClientboundPlayerPositionPacket packet =
+            ClientboundPlayerPositionPacket.of(this.awaitingTeleport, destination, relatives);
+        ((IEPlayerPositionLookS2CPacket) (Object) packet).ip_setPlayerDimension(player.level().dimension());
         
-        this.player.connection.send(lookPacket);
+        this.player.connection.send(packet);
     }
     
     @Inject(

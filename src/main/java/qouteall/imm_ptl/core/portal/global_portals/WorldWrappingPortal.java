@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 
 public class WorldWrappingPortal extends GlobalTrackedPortal {
     public static final EntityType<WorldWrappingPortal> ENTITY_TYPE =
-        createPortalEntityType(WorldWrappingPortal::new);
+        createPortalEntityType("border_portal", WorldWrappingPortal::new);
     
     public boolean isInward = true;
     public int zoneId = -1;
@@ -33,8 +33,8 @@ public class WorldWrappingPortal extends GlobalTrackedPortal {
     }
     
     @Override
-    protected void readAdditionalSaveData(CompoundTag compoundTag) {
-        super.readAdditionalSaveData(compoundTag);
+    protected void readAdditionalNbt(CompoundTag compoundTag) {
+        super.readAdditionalNbt(compoundTag);
         
         if (compoundTag.contains("isInward")) {
             isInward = compoundTag.getBooleanOr("isInward", false);
@@ -45,8 +45,8 @@ public class WorldWrappingPortal extends GlobalTrackedPortal {
     }
     
     @Override
-    protected void addAdditionalSaveData(CompoundTag compoundTag) {
-        super.addAdditionalSaveData(compoundTag);
+    protected void addAdditionalNbt(CompoundTag compoundTag) {
+        super.addAdditionalNbt(compoundTag);
         
         compoundTag.putBoolean("isInward", isInward);
         compoundTag.putInt("zoneId", zoneId);

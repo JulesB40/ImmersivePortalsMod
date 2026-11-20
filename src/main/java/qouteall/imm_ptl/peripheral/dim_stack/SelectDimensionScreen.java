@@ -56,7 +56,7 @@ public class SelectDimensionScreen extends Screen {
                     if (selected == null) {
                         return;
                     }
-                    Minecraft.getInstance().setScreen(parent);
+                    Minecraft.getInstance().gui.setScreen(parent);
                     outerCallback.accept(selected.dimension);
                 }
             )
@@ -68,14 +68,14 @@ public class SelectDimensionScreen extends Screen {
     @Override
     public void onClose() {
         // When `esc` is pressed return to the parent screen rather than setting screen to `null` which returns to the main menu.
-        this.minecraft.setScreen(this.parent);
+        this.minecraft.gui.setScreen(this.parent);
     }
     
     @Override
-    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
-        super.render(guiGraphics, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(guiGraphics, mouseX, mouseY, delta);
         
-        dimListWidget.render(guiGraphics, mouseX, mouseY, delta);
+        dimListWidget.extractRenderState(guiGraphics, mouseX, mouseY, delta);
         
         guiGraphics.centeredText(
             this.font, this.title.getString(), this.width / 2, 10, -1

@@ -72,7 +72,7 @@ public class IPModEntryClient implements ClientModInitializer {
         if (isSodiumPresent) {
             Helper.log("Sodium is present");
             
-            SodiumInterface.invoker = new SodiumInterface.OnSodiumPresent();
+            qouteall.imm_ptl.core.compat.sodium_compatibility.SodiumCompat.init();
             
             // Sodium compat is pretty ok now. No warning needed.
 //            IPGlobal.clientTaskList.addTask(MyTaskList.oneShotTask(() -> {

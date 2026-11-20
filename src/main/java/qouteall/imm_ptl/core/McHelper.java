@@ -120,7 +120,7 @@ public class McHelper {
         String text
     ) {
         Helper.log(text);
-        player.displayClientMessage(Component.literal(text), false);
+        player.sendSystemMessage(Component.literal(text));
     }
     
     public static long getServerGameTime() {
@@ -318,10 +318,8 @@ public class McHelper {
         // minecarts, boats and LivingEntity use position interpolation
         // don't make interpolate, or it may interpolate into unloaded chunks
         vehicle.setPos(newVehiclePos.x(), newVehiclePos.y(), newVehiclePos.z());
-        vehicle.lerpTo(
-            newVehiclePos.x(), newVehiclePos.y(), newVehiclePos.z(),
-            vehicle.getYRot(), vehicle.getXRot(), 0
-        );
+        // cancel the ongoing position interpolation
+        vehicle.getInterpolation().cancel();
         
         McHelper.setPosAndLastTickPos(
             vehicle, newVehiclePos, newVehicleLastTickPos
@@ -400,7 +398,7 @@ public class McHelper {
         
         Validate.notNull(newPortal);
         
-        newPortal.load(portal.saveWithoutId(new CompoundTag()));
+        qouteall.imm_ptl.core.mc_utils.NbtValueIO.loadEntity(newPortal, qouteall.imm_ptl.core.mc_utils.NbtValueIO.saveEntityWithoutId(portal));
         return newPortal;
     }
     
@@ -410,7 +408,7 @@ public class McHelper {
      * Only check whether the region file exists now.
      */
     public static boolean getDoesRegionFileExist(ResourceKey<Level> toDimension, BlockPos toPos) {
-        ChunkPos chunkPos = new ChunkPos(toPos);
+        ChunkPos chunkPos = ChunkPos.containing(toPos);
         
         LevelStorageSource.LevelStorageAccess storageSource = MiscHelper.getServer().storageSource;
         
@@ -422,9 +420,7 @@ public class McHelper {
     
     public static MutableComponent getLinkText(String link) {
         return Component.literal(link).withStyle(
-            style -> style.withClickEvent(new ClickEvent(
-                ClickEvent.Action.OPEN_URL, link
-            )).withUnderlined(true)
+            style -> style.withClickEvent(new ClickEvent.OpenUrl(java.net.URI.create(link))).withUnderlined(true)
         );
     }
     
@@ -433,7 +429,8 @@ public class McHelper {
     }
     
     public static void invokeCommandAs(Entity commandSender, List<String> commandList) {
-        CommandSourceStack commandSource = commandSender.createCommandSourceStack().withPermission(2).withSuppressedOutput();
+        CommandSourceStack commandSource = commandSender.createCommandSourceStackForNameResolution((net.minecraft.server.level.ServerLevel) commandSender.level())
+            .withPermission(net.minecraft.server.permissions.LevelBasedPermissionSet.GAMEMASTER).withSuppressedOutput();
         MinecraftServer server = commandSender.level().getServer();
         assert server != null;
         Commands commandManager = server.getCommands();
@@ -455,7 +452,7 @@ public class McHelper {
             return;
         }
         
-        entityTracker.broadcastAndSend(packet);
+        entityTracker.sendToTrackingPlayersAndSelf((Packet) packet);
     }
     
     //it's a little bit incorrect with corner glass pane
@@ -808,7 +805,7 @@ public class McHelper {
             }
             
             for (ServerPlayer player : playerList) {
-                player.displayClientMessage(text, false);
+                player.sendSystemMessage(text);
             }
             
             return true;

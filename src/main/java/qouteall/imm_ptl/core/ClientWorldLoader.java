@@ -1,5 +1,9 @@
 package qouteall.imm_ptl.core;
 
+import java.util.ArrayList;
+
+import net.minecraft.client.renderer.extract.LevelExtractor;
+
 
 import net.minecraft.util.profiling.Profiler;import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.fabricmc.api.EnvType;
@@ -34,7 +38,6 @@ import qouteall.imm_ptl.core.ducks.IEClientWorld;
 import qouteall.imm_ptl.core.ducks.IEMinecraftClient;
 import qouteall.imm_ptl.core.ducks.IEParticleManager;
 import qouteall.imm_ptl.core.ducks.IEWorld;
-import qouteall.imm_ptl.core.ducks.IEWorldRenderer;
 import qouteall.imm_ptl.core.mixin.client.accessor.IEClientLevelData;
 import qouteall.imm_ptl.core.mixin.client.accessor.IEClientLevel_Accessor;
 import qouteall.imm_ptl.core.portal.Portal;
@@ -66,6 +69,9 @@ public class ClientWorldLoader {
     private static final Map<ResourceKey<Level>, ClientLevel> CLIENT_WORLD_MAP =
         new Object2ObjectOpenHashMap<>();
     public static final Map<ResourceKey<Level>, LevelRenderer> WORLD_RENDERER_MAP =
+        new Object2ObjectOpenHashMap<>();
+    // since 26.x, each LevelRenderer is driven by a LevelExtractor (which also tracks dirty sections)
+    public static final Map<ResourceKey<Level>, LevelExtractor> LEVEL_EXTRACTOR_MAP =
         new Object2ObjectOpenHashMap<>();
     public static final Map<ResourceKey<Level>, DimensionRenderHelper> RENDER_HELPER_MAP =
         new Object2ObjectOpenHashMap<>();
@@ -117,32 +123,11 @@ public class ClientWorldLoader {
                     tickRemoteWorld(world);
                 }
             });
-            WORLD_RENDERER_MAP.values().forEach(worldRenderer -> {
-                if (worldRenderer != CLIENT.levelRenderer) {
-                    worldRenderer.tick();
-                }
-            });
             isClientRemoteTicking = false;
         }
         
-        boolean lightmapTextureConflict = false;
         for (DimensionRenderHelper helper : RENDER_HELPER_MAP.values()) {
             helper.tick();
-            if (helper.world != CLIENT.level) {
-                if (helper.lightmapTexture == CLIENT.gameRenderer.lightTexture()) {
-                    assert CLIENT.level != null;
-                    LOGGER.info(
-                        "Lightmap Texture Conflict {} {}",
-                        helper.world.dimension().identifier(),
-                        CLIENT.level.dimension().identifier()
-                    );
-                    lightmapTextureConflict = true;
-                }
-            }
-        }
-        if (lightmapTextureConflict) {
-            disposeRenderHelpers();
-            LOGGER.info("Refreshed Lightmaps");
         }
         
     }
@@ -187,7 +172,7 @@ public class ClientWorldLoader {
             Vec3 center = portal.transformPoint(playerPos);
             
             Camera camera = CLIENT.gameRenderer.mainCamera();
-            Vec3 oldCameraPos = camera.getPosition();
+            Vec3 oldCameraPos = camera.position();
             
             ((IECamera) camera).portal_setPos(center);
             
@@ -207,9 +192,9 @@ public class ClientWorldLoader {
     }
     
     public static void cleanUp() {
-        WORLD_RENDERER_MAP.values().forEach(
-            ClientWorldLoader::disposeWorldRenderer
-        );
+        for (ResourceKey<Level> dim : new ArrayList<>(WORLD_RENDERER_MAP.keySet())) {
+            disposeWorldRenderer(WORLD_RENDERER_MAP.get(dim), LEVEL_EXTRACTOR_MAP.get(dim));
+        }
         
         for (ClientLevel clientWorld : CLIENT_WORLD_MAP.values()) {
             ((IEClientWorld) clientWorld).ip_resetWorldRendererRef();
@@ -217,18 +202,22 @@ public class ClientWorldLoader {
         
         CLIENT_WORLD_MAP.clear();
         WORLD_RENDERER_MAP.clear();
+        LEVEL_EXTRACTOR_MAP.clear();
         
         disposeRenderHelpers();
         
         isInitialized = false;
     }
     
-    private static void disposeWorldRenderer(LevelRenderer worldRenderer) {
-        worldRenderer.setLevel(null);
-        if (worldRenderer != CLIENT.levelRenderer) {
-            worldRenderer.close();
-            ((IEWorldRenderer) worldRenderer).portal_fullyDispose();
+    private static void disposeWorldRenderer(LevelRenderer worldRenderer, @Nullable LevelExtractor extractor) {
+        if (worldRenderer == CLIENT.levelRenderer) {
+            // the vanilla renderer is managed by vanilla
+            return;
         }
+        if (extractor != null) {
+            extractor.setLevel(null);
+        }
+        worldRenderer.close();
     }
     
     private static void disposeDimensionDynamically(ResourceKey<Level> dimension) {
@@ -245,13 +234,13 @@ public class ClientWorldLoader {
         Validate.isTrue(CLIENT.isSameThread(), "not on client thread");
         
         LevelRenderer worldRenderer = WORLD_RENDERER_MAP.get(dimension);
-        disposeWorldRenderer(worldRenderer);
+        disposeWorldRenderer(worldRenderer, LEVEL_EXTRACTOR_MAP.get(dimension));
         WORLD_RENDERER_MAP.remove(dimension);
+        LEVEL_EXTRACTOR_MAP.remove(dimension);
         
         Validate.isTrue(CLIENT.levelRenderer != worldRenderer);
         
         ClientLevel clientWorld = CLIENT_WORLD_MAP.get(dimension);
-        ((IEClientWorld) clientWorld).ip_resetWorldRendererRef();
         CLIENT_WORLD_MAP.remove(dimension);
         
         DimensionRenderHelper renderHelper = RENDER_HELPER_MAP.remove(dimension);
@@ -301,6 +290,16 @@ public class ClientWorldLoader {
     }
     
     
+    @NotNull
+    public static LevelExtractor getLevelExtractor(ResourceKey<Level> dimension) {
+        getWorldRenderer(dimension); // ensures creation
+        LevelExtractor result = LEVEL_EXTRACTOR_MAP.get(dimension);
+        if (result == null) {
+            throw new RuntimeException("Unable to get LevelExtractor of " + dimension.identifier());
+        }
+        return result;
+    }
+
     /**
      * Get the client world and create if missing.
      * If the dimension id is invalid, it will throw an error
@@ -377,6 +376,7 @@ public class ClientWorldLoader {
             ResourceKey<Level> playerDimension = CLIENT.level.dimension();
             CLIENT_WORLD_MAP.put(playerDimension, CLIENT.level);
             WORLD_RENDERER_MAP.put(playerDimension, CLIENT.levelRenderer);
+            LEVEL_EXTRACTOR_MAP.put(playerDimension, CLIENT.levelExtractor);
             RENDER_HELPER_MAP.put(
                 CLIENT.level.dimension(),
                 new DimensionRenderHelper(CLIENT.level)
@@ -403,10 +403,18 @@ public class ClientWorldLoader {
         int chunkLoadDistance = 3; // my own chunk manager doesn't need it
         
         LevelRenderer worldRenderer = new LevelRenderer(
-            CLIENT,
             CLIENT.getEntityRenderDispatcher(),
             CLIENT.getBlockEntityRenderDispatcher(),
-            CLIENT.renderBuffers()
+            CLIENT.getModelManager(),
+            CLIENT.getTextureManager(),
+            CLIENT.getAtlasManager(),
+            CLIENT.getShaderManager(),
+            CLIENT.gameRenderer,
+            CLIENT.getWindow().getWidth(),
+            CLIENT.getWindow().getHeight()
+        );
+        LevelExtractor levelExtractor = new LevelExtractor(
+            CLIENT, CLIENT.gameRenderer.gameRenderState().levelRenderState, worldRenderer
         );
         
         ClientLevel newWorld;
@@ -450,10 +458,10 @@ public class ClientWorldLoader {
                 dimensionType,
                 chunkLoadDistance,
                 simulationDistance,// seems that client world does not use this
-                CLIENT::getProfiler,
-                worldRenderer,
+                levelExtractor,
                 CLIENT.level.isDebug(),
-                CLIENT.level.getBiomeManager().biomeZoomSeed
+                CLIENT.level.getBiomeManager().biomeZoomSeed,
+                CLIENT.level.getSeaLevel()
             );
             
             // all worlds share the same map data map
@@ -462,12 +470,12 @@ public class ClientWorldLoader {
             // all worlds share the same tick rate manager
             ((IEClientWorld) newWorld).ip_setTickRateManager(CLIENT.level.tickRateManager());
             
-            worldRenderer.setLevel(newWorld);
-            
-            worldRenderer.onResourceManagerReload(CLIENT.getResourceManager());
-            
             CLIENT_WORLD_MAP.put(dimension, newWorld);
             WORLD_RENDERER_MAP.put(dimension, worldRenderer);
+            LEVEL_EXTRACTOR_MAP.put(dimension, levelExtractor);
+
+            levelExtractor.onResourceManagerReload(CLIENT.getResourceManager());
+            levelExtractor.setLevel(newWorld);
             
             LOGGER.info("Client World Created {}", dimension.identifier());
         }
@@ -529,8 +537,8 @@ public class ClientWorldLoader {
                 world,
                 () -> {
                     // cannot be replaced into method reference
-                    // because levelRenderer field is actually mutable
-                    CLIENT.levelRenderer.allChanged();
+                    // because levelExtractor field is actually mutable
+                    CLIENT.levelExtractor.allChanged();
                 }
             );
         }
@@ -551,16 +559,19 @@ public class ClientWorldLoader {
         
         ClientLevel originalWorld = CLIENT.level;
         LevelRenderer originalWorldRenderer = CLIENT.levelRenderer;
+        LevelExtractor originalLevelExtractor = CLIENT.levelExtractor;
         ClientLevel originalNetHandlerWorld = networkHandler.getLevel();
         boolean originalIsWorldSwitched = isWorldSwitched;
         
         LevelRenderer newWorldRenderer = getWorldRenderer(newWorld.dimension());
+        LevelExtractor newLevelExtractor = getLevelExtractor(newWorld.dimension());
         
         Validate.notNull(newWorldRenderer, "new world renderer is null");
         
         CLIENT.level = newWorld;
         ((IEParticleManager) CLIENT.particleEngine).ip_setWorld(newWorld);
         ((IEMinecraftClient) CLIENT).ip_setWorldRenderer(newWorldRenderer);
+        ((IEMinecraftClient) CLIENT).ip_setLevelExtractor(newLevelExtractor);
         ((IEClientPlayNetworkHandler) networkHandler).ip_setWorld(newWorld);
         isWorldSwitched = true;
         
@@ -572,11 +583,13 @@ public class ClientWorldLoader {
                 LOGGER.error("Respawn packet should not be redirected");
                 originalWorld = CLIENT.level;
                 originalWorldRenderer = CLIENT.levelRenderer;
+                originalLevelExtractor = CLIENT.levelExtractor;
                 // client.levelRenderer is not final by mixin.
             }
             
             CLIENT.level = originalWorld;
             ((IEMinecraftClient) CLIENT).ip_setWorldRenderer(originalWorldRenderer);
+            ((IEMinecraftClient) CLIENT).ip_setLevelExtractor(originalLevelExtractor);
             ((IEParticleManager) CLIENT.particleEngine).ip_setWorld(originalWorld);
             ((IEClientPlayNetworkHandler) networkHandler).ip_setWorld(originalNetHandlerWorld);
             isWorldSwitched = originalIsWorldSwitched;
@@ -620,7 +633,7 @@ public class ClientWorldLoader {
                 Identifier id = McHelper.newResourceLocation(entry.getKey());
                 int expectedId = entry.getValue();
                 
-                if (biomes.getId(biomes.get(id)) != expectedId) {
+                if (biomes.getId(biomes.getValue(id)) != expectedId) {
                     LOGGER.error("Biome id mismatch: {} {}", id, expectedId);
                 }
             }

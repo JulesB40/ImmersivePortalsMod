@@ -255,11 +255,11 @@ public class DimStackScreen extends Screen {
     }
     
     @Override
-    public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(guiGraphics, mouseX, mouseY, partialTick);
         
         if (isEnabled) {
-            dimListWidget.render(guiGraphics, mouseX, mouseY, partialTick);
+            dimListWidget.extractRenderState(guiGraphics, mouseX, mouseY, partialTick);
         }
         
         Font font = Minecraft.getInstance().font;
@@ -301,7 +301,7 @@ public class DimStackScreen extends Screen {
         
         int insertingPosition = position + 1;
         
-        Minecraft.getInstance().setScreen(
+        Minecraft.getInstance().gui.setScreen(
             new SelectDimensionScreen(
                 this,
                 dimensionType -> {
@@ -333,7 +333,7 @@ public class DimStackScreen extends Screen {
             return;
         }
         
-        Minecraft.getInstance().setScreen(new DimStackEntryEditScreen(
+        Minecraft.getInstance().gui.setScreen(new DimStackEntryEditScreen(
             this, selected,
             () -> {
                 int newlyChangingEntryIndex = dimListWidget.children().indexOf(selected);

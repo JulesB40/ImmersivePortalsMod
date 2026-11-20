@@ -24,13 +24,13 @@ public class MixinFogRenderer_A_CVB {
         ClientLevel world = Minecraft.getInstance().level;
         if (world != null && AlternateDimensions.isAlternateDimension(world)) {
             return new Vec3(
-                camera.getPosition().x,
-                Math.max(32.0, camera.getPosition().y),
-                camera.getPosition().z
+                camera.position().x,
+                Math.max(32.0, camera.position().y),
+                camera.position().z
             );
         }
         else {
-            return camera.getPosition();
+            return camera.position();
         }
     }
 }

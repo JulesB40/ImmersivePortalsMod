@@ -53,7 +53,7 @@ public class WireRenderingHelper {
         
         double periodLen = 100;
         
-        matrixStack.mulPose(rotation.toMcQuaternion());
+        matrixStack.rotate(rotation.toMcQuaternion());
         Matrix4f matrix = matrixStack.last().pose();
         
         float alpha = ((color >> 24) & 0xff) / 255f;
@@ -61,7 +61,7 @@ public class WireRenderingHelper {
         float green = ((color >> 8) & 0xff) / 255f;
         float blue = (color & 0xff) / 255f;
         
-        LevelRenderer.renderLineBox(
+        renderLineBox(
             matrixStack,
             vertexConsumer,
             -boxSize / 2,
@@ -139,7 +139,7 @@ public class WireRenderingHelper {
             planeCenter.z - cameraPos.z
         );
         
-        matrixStack.mulPose(
+        matrixStack.rotate(
             DQuaternion.rotationByDegrees(normal, CHelper.getSmoothCycles(211) * 360)
                 .toMcQuaternion()
         );
@@ -331,7 +331,7 @@ public class WireRenderingHelper {
             center.z - cameraPos.z
         );
         
-        matrixStack.mulPose(rotation.toMcQuaternion());
+        matrixStack.rotate(rotation.toMcQuaternion());
         
         matrixStack.scale((float) scale, (float) scale, (float) scale);
         
@@ -363,13 +363,38 @@ public class WireRenderingHelper {
             .addVertex(matrix, (float) (lineStart.x), (float) (lineStart.y), (float) (lineStart.z))
             .setColor(color)
             .setNormal(normalTemp.x(), normalTemp.y(), normalTemp.z())
+            .setLineWidth(LINE_WIDTH)
             ;
         
         vertexConsumer
             .addVertex(matrix, (float) (lineEnd.x), (float) (lineEnd.y), (float) (lineEnd.z))
             .setColor(color)
             .setNormal(normalTemp.x(), normalTemp.y(), normalTemp.z())
+            .setLineWidth(LINE_WIDTH)
             ;
+    }
+    
+    public static final float LINE_WIDTH = 2.0f;
+    
+    /**
+     * Replacement for the removed {@code LevelRenderer.renderLineBox}.
+     */
+    public static void renderLineBox(
+        com.mojang.blaze3d.vertex.PoseStack poseStack, VertexConsumer consumer,
+        double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
+        float red, float green, float blue, float alpha
+    ) {
+        int color = ((int) (alpha * 255) << 24) | ((int) (red * 255) << 16) | ((int) (green * 255) << 8) | (int) (blue * 255);
+        Matrix4f m = poseStack.last().pose();
+        Matrix3f n = poseStack.last().normal();
+        Vec3[] c = new Vec3[]{
+            new Vec3(minX, minY, minZ), new Vec3(maxX, minY, minZ), new Vec3(maxX, minY, maxZ), new Vec3(minX, minY, maxZ),
+            new Vec3(minX, maxY, minZ), new Vec3(maxX, maxY, minZ), new Vec3(maxX, maxY, maxZ), new Vec3(minX, maxY, maxZ)
+        };
+        int[][] edges = {{0, 1}, {1, 2}, {2, 3}, {3, 0}, {4, 5}, {5, 6}, {6, 7}, {7, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+        for (int[] e : edges) {
+            putLine(consumer, color, m, n, c[e[0]], c[e[1]]);
+        }
     }
     
     private static void putLineToLineStrip(
@@ -539,7 +564,7 @@ public class WireRenderingHelper {
             sphere.center().z - cameraPos.z
         );
         
-        matrixStack.mulPose(sphereOrientation.toMcQuaternion());
+        matrixStack.rotate(sphereOrientation.toMcQuaternion());
         matrixStack.scale((float) sphere.radius(), (float) sphere.radius(), (float) sphere.radius());
         
         Matrix4f matrix = matrixStack.last().pose();

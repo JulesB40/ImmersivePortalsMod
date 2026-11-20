@@ -51,14 +51,10 @@ import qouteall.imm_ptl.core.IPGlobal;
 import qouteall.imm_ptl.core.McHelper;
 import qouteall.imm_ptl.core.ducks.IEClientWorld;
 import qouteall.imm_ptl.core.ducks.IEEntity;
-import qouteall.imm_ptl.core.ducks.IEWorldRenderer;
 import qouteall.imm_ptl.core.platform_specific.IPConfig;
 import qouteall.imm_ptl.core.platform_specific.IPConfigGUI;
 import qouteall.imm_ptl.core.platform_specific.O_O;
 import qouteall.imm_ptl.core.portal.Portal;
-import qouteall.imm_ptl.core.render.ForceMainThreadRebuild;
-import qouteall.imm_ptl.core.render.ImmPtlViewArea;
-import qouteall.imm_ptl.core.render.MyGameRenderer;
 import qouteall.imm_ptl.core.render.context_management.RenderStates;
 import qouteall.imm_ptl.core.teleportation.ClientTeleportationManager;
 import qouteall.q_misc_util.Helper;
@@ -337,11 +333,9 @@ public class ClientDebugCommand {
             .executes(context -> {
                 Minecraft.getInstance().execute(() -> {
                     ClientWorldLoader.getClientWorlds().forEach((world) -> {
-                        ImmPtlViewArea builtChunkStorage = (ImmPtlViewArea) ((IEWorldRenderer)
-                            ClientWorldLoader.getWorldRenderer(world.dimension()))
-                            .ip_getBuiltChunkStorage();
+                        String stats = ClientWorldLoader.getLevelExtractor(world.dimension()).sectionStatistics();
                         CHelper.printChat(
-                            world.dimension().identifier().toString() + builtChunkStorage.getDebugString()
+                            world.dimension().identifier().toString() + " " + stats
                         );
                     });
                 });
@@ -393,7 +387,7 @@ public class ClientDebugCommand {
             .executes(context -> {
                 Minecraft.getInstance().execute(() -> {
                     ClientWorldLoader.disposeRenderHelpers();
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    Minecraft.getInstance().levelExtractor.allChanged();
                 });
                 return 0;
             })
@@ -406,7 +400,7 @@ public class ClientDebugCommand {
                 Minecraft client = Minecraft.getInstance();
                 
                 IPGlobal.CLIENT_TASK_LIST.addTask(MyTaskList.oneShotTask(() -> {
-                    client.setScreen(IPConfigGUI.createClothConfigScreen(null));
+                    client.gui.setScreen(IPConfigGUI.createClothConfigScreen(null));
                 }));
                 return 0;
             })
@@ -511,17 +505,6 @@ public class ClientDebugCommand {
             })
         );
         
-        builder.then(ClientCommands
-            .literal("force_main_thread_chunk_rebuild")
-            .then(ClientCommands
-                .argument("frameCount", IntegerArgumentType.integer(0, 10000))
-                .executes(context -> {
-                    int frameCount = IntegerArgumentType.getInteger(context, "frameCount");
-                    ForceMainThreadRebuild.forceMainThreadRebuildFor(frameCount);
-                    return 0;
-                })
-            )
-        );
         
         LiteralArgumentBuilder<FabricClientCommandSource> wandBuilder = ClientCommands.literal("wand");
         registerPortalWandCommands(wandBuilder);
@@ -622,21 +605,6 @@ public class ClientDebugCommand {
             builder,
             "view_bob_reduce",
             cond -> IPGlobal.viewBobbingReduce = cond
-        );
-        registerSwitchCommand(
-            builder,
-            "iris_stencil",
-            cond -> IPCGlobal.debugEnableStencilWithIris = cond
-        );
-        registerSwitchCommand(
-            builder,
-            "another_stencil",
-            cond -> IPCGlobal.useSeparatedStencilFormat = cond
-        );
-        registerSwitchCommand(
-            builder,
-            "portal_rendering_cave_culling",
-            cond -> MyGameRenderer.enablePortalCaveCulling = cond
         );
         registerSwitchCommand(
             builder,
@@ -820,9 +788,7 @@ public class ClientDebugCommand {
                     str.append(String.format(
                         "%s %s\n",
                         dimension.identifier(),
-                        ((ImmPtlViewArea) ((IEWorldRenderer) worldRenderer)
-                            .ip_getBuiltChunkStorage()
-                        ).getManagedSectionNum()
+                        ClientWorldLoader.getLevelExtractor(dimension).countRenderedSections()
                     ));
                 }
             );

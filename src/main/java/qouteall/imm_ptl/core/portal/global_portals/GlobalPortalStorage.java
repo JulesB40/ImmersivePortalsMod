@@ -57,7 +57,28 @@ public class GlobalPortalStorage extends SavedData {
     private static final Logger LOGGER = LogUtils.getLogger();
     
     public List<Portal> data;
-    public final WeakReference<ServerLevel> world;
+    // the saved data codec has no world context, so the world is attached after loading
+    public WeakReference<ServerLevel> world = new WeakReference<>(null);
+    @Nullable
+    private CompoundTag pendingLoadedTag;
+    
+    public static final com.mojang.serialization.Codec<GlobalPortalStorage> CODEC =
+        CompoundTag.CODEC.xmap(
+            tag -> {
+                GlobalPortalStorage storage = new GlobalPortalStorage();
+                storage.pendingLoadedTag = tag;
+                return storage;
+            },
+            storage -> storage.save(new CompoundTag(), null)
+        );
+    
+    public static final net.minecraft.world.level.saveddata.SavedDataType<GlobalPortalStorage> TYPE =
+        new net.minecraft.world.level.saveddata.SavedDataType<>(
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("immersive_portals", "global_portal"),
+            GlobalPortalStorage::new,
+            CODEC,
+            net.minecraft.util.datafix.DataFixTypes.SAVED_DATA_COMMAND_STORAGE
+        );
     private int version = 1;
     private boolean shouldReSync = false;
     
@@ -94,21 +115,19 @@ public class GlobalPortalStorage extends SavedData {
     public static GlobalPortalStorage get(
         ServerLevel world
     ) {
-        return world.getDataStorage().computeIfAbsent(
-            new SavedData.Factory<>(
-                () -> {
-                    LOGGER.info("Global portal storage initialized {}", world.dimension().identifier());
-                    return new GlobalPortalStorage(world);
-                },
-                (nbt, holderLookup) -> {
-                    GlobalPortalStorage globalPortalStorage = new GlobalPortalStorage(world);
-                    globalPortalStorage.fromNbt(nbt);
-                    return globalPortalStorage;
-                },
-                null
-            ),
-            "global_portal"
-        );
+        GlobalPortalStorage storage = world.getDataStorage().computeIfAbsent(TYPE);
+        if (storage.world.get() != world) {
+            storage.world = new WeakReference<>(world);
+            if (storage.pendingLoadedTag != null) {
+                CompoundTag tag = storage.pendingLoadedTag;
+                storage.pendingLoadedTag = null;
+                storage.fromNbt(tag);
+            }
+            else {
+                LOGGER.info("Global portal storage initialized {}", world.dimension().identifier());
+            }
+        }
+        return storage;
     }
     
     @Environment(EnvType.CLIENT)
@@ -127,8 +146,7 @@ public class GlobalPortalStorage extends SavedData {
         }
     }
     
-    public GlobalPortalStorage(ServerLevel world_) {
-        world = new WeakReference<>(world_);
+    public GlobalPortalStorage() {
         data = new ArrayList<>();
     }
     
@@ -157,7 +175,7 @@ public class GlobalPortalStorage extends SavedData {
     }
     
     public void onDataChanged() {
-        setDirty(true);
+        setDirty();
         
         shouldReSync = true;
     }
@@ -248,10 +266,10 @@ public class GlobalPortalStorage extends SavedData {
     
     private static Portal readPortalFromTag(Level currWorld, CompoundTag compoundTag) {
         Identifier entityId = McHelper.newResourceLocation(compoundTag.getStringOr("entity_type", ""));
-        EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.get(entityId);
+        EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.getValue(entityId);
         
         Entity e = entityType.create(currWorld, net.minecraft.world.entity.EntitySpawnReason.LOAD);
-        e.load(compoundTag);
+        qouteall.imm_ptl.core.mc_utils.NbtValueIO.loadEntity(e, compoundTag);
         
         ((Portal) e).isGlobalPortal = true;
         
@@ -262,8 +280,11 @@ public class GlobalPortalStorage extends SavedData {
         return (Portal) e;
     }
     
-    @Override
-    public @NotNull CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public @NotNull CompoundTag save(CompoundTag tag, @Nullable HolderLookup.Provider registries) {
+        if (pendingLoadedTag != null) {
+            // not yet attached to world, keep the loaded data unchanged
+            return pendingLoadedTag.copy();
+        }
         if (data == null) {
             return tag;
         }
@@ -274,8 +295,7 @@ public class GlobalPortalStorage extends SavedData {
         
         for (Portal portal : data) {
             Validate.isTrue(portal.level() == currWorld);
-            CompoundTag portalTag = new CompoundTag();
-            portal.saveWithoutId(portalTag);
+            CompoundTag portalTag = qouteall.imm_ptl.core.mc_utils.NbtValueIO.saveEntityWithoutId(portal);
             portalTag.putString(
                 "entity_type",
                 EntityType.getKey(portal.getType()).toString()
@@ -303,7 +323,7 @@ public class GlobalPortalStorage extends SavedData {
         if (version <= 1) {
             upgradeData(world.get());
             version = 2;
-            setDirty(true);
+            setDirty();
         }
     }
     

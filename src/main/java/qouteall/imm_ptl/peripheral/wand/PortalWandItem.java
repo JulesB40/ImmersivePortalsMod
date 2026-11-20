@@ -9,7 +9,7 @@ import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.MultiBufferSource;
+import qouteall.imm_ptl.core.render.DeferredBufferSource;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -33,7 +33,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PortalWandItem extends Item {
-    public static final PortalWandItem instance = new PortalWandItem(new Properties());
+    public static final PortalWandItem instance = new PortalWandItem(new Properties().setId(net.minecraft.resources.ResourceKey.create(
+        net.minecraft.core.registries.Registries.ITEM,
+        net.minecraft.resources.Identifier.fromNamespaceAndPath("immersive_portals", "portal_wand")
+    )));
     
     public static void init() {
         Registry.register(
@@ -56,6 +59,29 @@ public class PortalWandItem extends Item {
     }
     
     public static void initClient() {
+        // render the wand markings into the main view (not portal views)
+        net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
+            if (qouteall.imm_ptl.core.render.view.PortalViewRenderer.isProcessingPortalView()) {
+                return;
+            }
+            net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
+            LocalPlayer player = client.player;
+            if (player == null) {
+                return;
+            }
+            ItemStack itemStack = player.getMainHandItem();
+            if (itemStack.getItem() != instance) {
+                return;
+            }
+            net.minecraft.world.phys.Vec3 cameraPos = context.levelState().cameraRenderState.pos;
+            DeferredBufferSource bufferSource = new DeferredBufferSource();
+            clientRender(
+                player, itemStack, new PoseStack(), bufferSource,
+                cameraPos.x, cameraPos.y, cameraPos.z
+            );
+            bufferSource.submitAll(context.submitNodeCollector());
+        });
+        
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player != null) {
                 ItemStack itemStack = client.player.getMainHandItem();
@@ -178,7 +204,7 @@ public class PortalWandItem extends Item {
     }
     
     @Override
-    public InteractionResult<ItemStack> use(Level world, Player player, InteractionHand hand) {
+    public InteractionResult use(Level world, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
         Mode mode = itemStack.getOrDefault(COMPONENT_TYPE, Mode.FALLBACK);
         
@@ -187,7 +213,7 @@ public class PortalWandItem extends Item {
                 if (!PortalWandInteraction.isDragging(((ServerPlayer) player))) {
                     Mode nextMode = mode.next();
                     itemStack.set(COMPONENT_TYPE, nextMode);
-                    return new InteractionResult<>(InteractionResult.SUCCESS, itemStack);
+                    return InteractionResult.SUCCESS;
                 }
             }
         }
@@ -220,9 +246,12 @@ public class PortalWandItem extends Item {
     @Override
     public void appendHoverText(
         ItemStack stack, Item.TooltipContext tooltipContext,
-        List<Component> tooltip, TooltipFlag tooltipFlag
+        net.minecraft.world.item.component.TooltipDisplay tooltipDisplay,
+        java.util.function.Consumer<Component> tooltipConsumer, TooltipFlag tooltipFlag
     ) {
-        super.appendHoverText(stack, tooltipContext, tooltip, tooltipFlag);
+        super.appendHoverText(stack, tooltipContext, tooltipDisplay, tooltipConsumer, tooltipFlag);
+        java.util.List<Component> tooltip = new java.util.ArrayList<>();
+        // collected lines are flushed at the end of the method
         
         tooltip.add(Component.translatable(
             "imm_ptl.wand.item_desc_1",
@@ -234,6 +263,7 @@ public class PortalWandItem extends Item {
             Minecraft.getInstance().options.keyShift.getTranslatedKeyMessage(),
             Minecraft.getInstance().options.keyAttack.getTranslatedKeyMessage()
         ));
+            tooltip.forEach(tooltipConsumer);
     }
     
     @Override
@@ -291,7 +321,7 @@ public class PortalWandItem extends Item {
     
     @Environment(EnvType.CLIENT)
     public static void clientRender(
-        LocalPlayer player, ItemStack itemStack, PoseStack poseStack, MultiBufferSource.BufferSource bufferSource,
+        LocalPlayer player, ItemStack itemStack, PoseStack poseStack, DeferredBufferSource bufferSource,
         double camX, double camY, double camZ
     ) {
         if (!instructionInformed) {

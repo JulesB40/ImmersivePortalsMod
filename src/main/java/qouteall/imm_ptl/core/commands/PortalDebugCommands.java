@@ -44,7 +44,6 @@ import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import qouteall.imm_ptl.core.CHelper;
 import qouteall.imm_ptl.core.McHelper;
-import qouteall.imm_ptl.core.api.example.ExampleGuiPortalRendering;
 import qouteall.imm_ptl.core.chunk_loading.ChunkVisibility;
 import qouteall.imm_ptl.core.chunk_loading.ImmPtlChunkTickets;
 import qouteall.imm_ptl.core.chunk_loading.ImmPtlChunkTracking;
@@ -85,10 +84,8 @@ public class PortalDebugCommands {
             .then(Commands.argument("dim", DimensionArgument.dimension())
                 .then(Commands.argument("pos", Vec3Argument.vec3(false))
                     .executes(context -> {
-                        ExampleGuiPortalRendering.onCommandExecuted(
-                            context.getSource().getPlayerOrException(),
-                            DimensionArgument.getDimension(context, "dim"),
-                            Vec3Argument.getVec3(context, "pos")
+                        context.getSource().sendFailure(
+                            net.minecraft.network.chat.Component.literal("GUI portal rendering is not ported yet")
                         );
                         return 0;
                     })
@@ -250,7 +247,7 @@ public class PortalDebugCommands {
                 .executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
                     
-                    ChunkPos center = new ChunkPos(BlockPos.containing(player.position()));
+                    ChunkPos center = ChunkPos.containing(BlockPos.containing(player.position()));
                     
                     invokeEraseChunk(
                         player.level(), center,
@@ -266,7 +263,7 @@ public class PortalDebugCommands {
                             
                             ServerPlayer player = context.getSource().getPlayerOrException();
                             
-                            ChunkPos center = new ChunkPos(BlockPos.containing(player.position()));
+                            ChunkPos center = ChunkPos.containing(BlockPos.containing(player.position()));
                             
                             invokeEraseChunk(
                                 player.level(), center,
@@ -364,7 +361,7 @@ public class PortalDebugCommands {
                         ServerLevel world = DimensionArgument.getDimension(context, "dim");
                         ServerPlayer player = context.getSource().getPlayerOrException();
                         BlockPos pos = BlockPosArgument.getBlockPos(context, "pos");
-                        ChunkPos chunkPos = new ChunkPos(pos);
+                        ChunkPos chunkPos = ChunkPos.containing(pos);
                         
                         doReportChunkStatus(chunkPos.x(), chunkPos.z(), world, player);
                         

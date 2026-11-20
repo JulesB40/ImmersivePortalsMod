@@ -310,6 +310,16 @@ public class ImmPtlNetworkConfig {
         return serverVersion != null;
     }
     
+    /**
+     * Used when decoding clientbound packets. Only the client decodes clientbound packets.
+     */
+    public static boolean isDecodingFromImmPtlServer() {
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().getEnvironmentType() != net.fabricmc.api.EnvType.CLIENT) {
+            return false;
+        }
+        return doesServerHaveImmPtl();
+    }
+    
     private static void warnServerMissingImmPtl() {
         Minecraft.getInstance().execute(() -> {
             CHelper.printChat(Component.translatable("imm_ptl.server_missing_immptl"));

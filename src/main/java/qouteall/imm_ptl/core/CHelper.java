@@ -91,32 +91,23 @@ public class CHelper {
     }
     
     public static void printChat(Component text) {
-        Minecraft.getInstance().gui.hud.getChat().addMessage(text);
+        Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(text);
     }
     
     public static void openLinkConfirmScreen(
         Screen parent,
         String link
     ) {
-        Minecraft client = Minecraft.getInstance();
-        client.setScreen(new ConfirmLinkScreen(
-            (result) -> {
-                if (result) {
-                    try {
-                        Util.getPlatform().openUri(new URI(link));
-                    }
-                    catch (URISyntaxException e) {
-                        e.printStackTrace();
-                    }
-                }
-                client.setScreen(parent);
-            },
-            link, true
-        ));
+        try {
+            ConfirmLinkScreen.confirmLinkNow(parent, new URI(link), true);
+        }
+        catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
     }
     
     public static Vec3 getCurrentCameraPos() {
-        return Minecraft.getInstance().gameRenderer.mainCamera().getPosition();
+        return Minecraft.getInstance().gameRenderer.mainCamera().position();
     }
     
     public static Iterable<Entity> getWorldEntityList(Level world) {

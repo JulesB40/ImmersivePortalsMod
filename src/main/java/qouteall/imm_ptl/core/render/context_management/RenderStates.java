@@ -22,14 +22,10 @@ import qouteall.imm_ptl.core.IPGlobal;
 import qouteall.imm_ptl.core.McHelper;
 import qouteall.imm_ptl.core.block_manipulation.BlockManipulationClient;
 import qouteall.imm_ptl.core.ducks.IEEntity;
-import qouteall.imm_ptl.core.ducks.IEGameRenderer;
 import qouteall.imm_ptl.core.miscellaneous.ClientPerformanceMonitor;
 import qouteall.imm_ptl.core.mixin.client.particle.IEParticle;
 import qouteall.imm_ptl.core.portal.Portal;
 import qouteall.imm_ptl.core.portal.animation.StableClientTimer;
-import qouteall.imm_ptl.core.render.ForceMainThreadRebuild;
-import qouteall.imm_ptl.core.render.MyRenderHelper;
-import qouteall.imm_ptl.core.render.QueryManager;
 import qouteall.q_misc_util.Helper;
 
 import java.lang.ref.WeakReference;
@@ -89,7 +85,7 @@ public class RenderStates {
     ) {
         ClientWorldLoader.initializeIfNeeded();
         
-        Entity cameraEntity = MyRenderHelper.client.cameraEntity;
+        Entity cameraEntity = Minecraft.getInstance().getCameraEntity();
         
         if (cameraEntity == null) {
             return;
@@ -107,23 +103,20 @@ public class RenderStates {
         portalRenderInfos = new ArrayList<>();
         portalsRenderedThisFrame = 0;
         
-        FogRendererContext.update();
         
         renderStartNanoTime = System.nanoTime();
         
         updateViewBobbingFactor(cameraEntity);
         
         basicProjectionMatrix = null;
-        originalCamera = MyRenderHelper.client.gameRenderer.mainCamera();
+        originalCamera = Minecraft.getInstance().gameRenderer.mainCamera();
         
         updateIsLaggy();
         
-        ForceMainThreadRebuild.onPreRender();
         
         debugText = "";
 //        debugText = originalCamera.getPos().toString();
         
-        QueryManager.queryStallCounter = 0;
         
         Vec3 velocity = McHelper.getWorldVelocity(cameraEntity);
         originalPlayerBoundingBox = cameraEntity.getBoundingBox().expandTowards(
@@ -145,7 +138,7 @@ public class RenderStates {
         else {
             if (lastPortalRenderInfos.size() > 10) {
                 if (ClientPerformanceMonitor.getAverageFps() < 8 || ClientPerformanceMonitor.getMinimumFps() < 6) {
-                    MyRenderHelper.client.gui.hud.setOverlayMessage(
+                    Minecraft.getInstance().gui.hud.setOverlayMessage(
                         Component.translatable("imm_ptl.laggy"),
                         false
                     );
@@ -206,11 +199,8 @@ public class RenderStates {
     
     public static void onTotalRenderEnd() {
         Minecraft client = Minecraft.getInstance();
-        IEGameRenderer gameRenderer = (IEGameRenderer) Minecraft.getInstance().gameRenderer;
-        gameRenderer.ip_setLightmapTextureManager(ClientWorldLoader
-            .getDimensionRenderHelper(client.level.dimension()).lightmapTexture);
         
-        Vec3 currCameraPos = client.gameRenderer.mainCamera().getPosition();
+        Vec3 currCameraPos = client.gameRenderer.mainCamera().position();
         cameraPosDelta = currCameraPos.subtract(lastCameraPos);
         if (cameraPosDelta.lengthSqr() > 1) {
             cameraPosDelta = Vec3.ZERO;
@@ -268,7 +258,6 @@ public class RenderStates {
             }
         }
         
-        result.add("Occlusion Query Stall: " + QueryManager.queryStallCounter);
         result.add("Client Perf %s %d %d".formatted(
             ClientPerformanceMonitor.level,
             ClientPerformanceMonitor.getAverageFps(),

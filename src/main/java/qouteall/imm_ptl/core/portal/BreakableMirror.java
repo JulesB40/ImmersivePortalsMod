@@ -28,7 +28,7 @@ import java.util.function.Predicate;
 public class BreakableMirror extends Mirror {
     
     public static final EntityType<BreakableMirror> ENTITY_TYPE =
-        createPortalEntityType(BreakableMirror::new);
+        createPortalEntityType("breakable_mirror", BreakableMirror::new);
     
     @Nullable
     public IntBox wallArea;
@@ -41,8 +41,8 @@ public class BreakableMirror extends Mirror {
     }
     
     @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {
-        super.readAdditionalSaveData(tag);
+    protected void readAdditionalNbt(CompoundTag tag) {
+        super.readAdditionalNbt(tag);
         if (tag.contains("boxXL")) {
             wallArea = new IntBox(
                 new BlockPos(
@@ -72,8 +72,8 @@ public class BreakableMirror extends Mirror {
     }
     
     @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {
-        super.addAdditionalSaveData(tag);
+    protected void addAdditionalNbt(CompoundTag tag) {
+        super.addAdditionalNbt(tag);
         if (wallArea != null) {
             tag.putInt("boxXL", wallArea.l.getX());
             tag.putInt("boxYL", wallArea.l.getY());
@@ -93,7 +93,7 @@ public class BreakableMirror extends Mirror {
     @Override
     public void tick() {
         super.tick();
-        if (!level().isClientSide) {
+        if (!level().isClientSide()) {
             if (!unbreakable) {
                 if (level().getGameTime() % 10 == getId() % 10) {
                     checkWallIntegrity();

@@ -15,8 +15,8 @@ import qouteall.imm_ptl.core.network.PacketRedirectionClient;
 @Mixin(Minecraft.class)
 public abstract class MixinMinecraft_RedirectedPacket extends ReentrantBlockableEventLoop<Runnable> {
     
-    public MixinMinecraft_RedirectedPacket(String string) {
-        super(string);
+    public MixinMinecraft_RedirectedPacket(String string, boolean propagatesCrashes) {
+        super(string, propagatesCrashes);
     }
     
     // ensure that the task is processed with the redirected dimension

@@ -60,15 +60,15 @@ public abstract class BreakablePortalEntity extends Portal {
     
     @Override
     public boolean isPortalValid() {
-        if (level().isClientSide) {
+        if (level().isClientSide()) {
             return super.isPortalValid();
         }
         return super.isPortalValid() && blockPortalShape != null && reversePortalId != null;
     }
     
     @Override
-    protected void readAdditionalSaveData(CompoundTag compoundTag) {
-        super.readAdditionalSaveData(compoundTag);
+    protected void readAdditionalNbt(CompoundTag compoundTag) {
+        super.readAdditionalNbt(compoundTag);
         if (compoundTag.contains("netherPortalShape")) {
             blockPortalShape = new BlockPortalShape(compoundTag.getCompoundOrEmpty("netherPortalShape"));
         }
@@ -108,8 +108,8 @@ public abstract class BreakablePortalEntity extends Portal {
     }
     
     @Override
-    protected void addAdditionalSaveData(CompoundTag compoundTag) {
-        super.addAdditionalSaveData(compoundTag);
+    protected void addAdditionalNbt(CompoundTag compoundTag) {
+        super.addAdditionalNbt(compoundTag);
         if (blockPortalShape != null) {
             compoundTag.put("netherPortalShape", blockPortalShape.toTag());
         }
@@ -145,7 +145,7 @@ public abstract class BreakablePortalEntity extends Portal {
     
     private BreakablePortalEntity getReversePortal() {
         
-        ServerLevel world = getServer().getLevel(getDestDim());
+        ServerLevel world = level().getServer().getLevel(getDestDim());
         Entity entity = world.getEntity(reversePortalId);
         if (entity instanceof BreakablePortalEntity) {
             return (BreakablePortalEntity) entity;
@@ -177,7 +177,7 @@ public abstract class BreakablePortalEntity extends Portal {
     }
     
     private void checkPortalIntegrity() {
-        Validate.isTrue(!level().isClientSide);
+        Validate.isTrue(!level().isClientSide());
         
         if (!isPortalValid()) {
             remove(RemovalReason.KILLED);
@@ -243,7 +243,7 @@ public abstract class BreakablePortalEntity extends Portal {
             reversePortal.shouldBreakPortal = true;
         }
         else {
-            ServerTaskList.of(getServer()).addTask(MyTaskList.withRetryNumberLimit(
+            ServerTaskList.of(level().getServer()).addTask(MyTaskList.withRetryNumberLimit(
                 30,
                 () -> {
                     if (this.isRemoved()) {

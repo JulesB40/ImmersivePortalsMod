@@ -6,13 +6,11 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderBuffers;
 
 public interface IEMinecraftClient {
-    void ip_setFrameBuffer(RenderTarget buffer);
-    
     Screen ip_getCurrentScreen();
     
     void ip_setWorldRenderer(LevelRenderer r);
     
-    void ip_setRenderBuffers(RenderBuffers arg);
+    void ip_setLevelExtractor(net.minecraft.client.renderer.extract.LevelExtractor e);
     
     Thread ip_getRunningThread();
 }

@@ -73,12 +73,9 @@ public class CommandStickItem extends Item {
         
         public static Data deserialize(CompoundTag tag) {
             return new Data(
-                tag.getString("command"),
-                tag.getString("nameTranslationKey"),
-                tag.getList(
-                        "descriptionTranslationKeys",
-                        StringTag.valueOf("").getId()
-                    )
+                tag.getStringOr("command", ""),
+                tag.getStringOr("nameTranslationKey", ""),
+                tag.getListOrEmpty("descriptionTranslationKeys")
                     .stream()
                     .map(tag1 -> ((StringTag) tag1).asString().orElseThrow())
                     .collect(Collectors.toList())
@@ -93,7 +90,10 @@ public class CommandStickItem extends Item {
     }
     
     public static final CommandStickItem instance = new CommandStickItem(
-        new Item.Properties()
+        new Item.Properties().setId(net.minecraft.resources.ResourceKey.create(
+            net.minecraft.core.registries.Registries.ITEM,
+            net.minecraft.resources.Identifier.fromNamespaceAndPath("immersive_portals", "command_stick")
+        ))
     );
     
     public CommandStickItem(Properties settings) {
@@ -107,7 +107,7 @@ public class CommandStickItem extends Item {
     }
     
     @Override
-    public InteractionResult<ItemStack> use(Level world, Player player, InteractionHand hand) {
+    public InteractionResult use(Level world, Player player, InteractionHand hand) {
         doUse(player, player.getItemInHand(hand));
         return super.use(world, player, hand);
     }
@@ -125,7 +125,8 @@ public class CommandStickItem extends Item {
                 return;
             }
             
-            CommandSourceStack commandSource = player.createCommandSourceStack().withPermission(2);
+            CommandSourceStack commandSource = ((ServerPlayer) player).createCommandSourceStack()
+                .withPermission(net.minecraft.server.permissions.LevelBasedPermissionSet.GAMEMASTER);
             
             MinecraftServer server = player.level().getServer();
             assert server != null;
@@ -150,20 +151,24 @@ public class CommandStickItem extends Item {
             return true;// any player regardless of gamemode can use
         }
         else {
-            return player.hasPermissions(2) || player.isCreative();
+            return qouteall.q_misc_util.MiscHelper.hasPermissionLevel(player.permissions(), 2) || player.isCreative();
         }
     }
     
     @Override
     public void appendHoverText(
         ItemStack stack, Item.TooltipContext tooltipContext,
-        List<Component> tooltip, TooltipFlag tooltipFlag
+        net.minecraft.world.item.component.TooltipDisplay tooltipDisplay,
+        java.util.function.Consumer<Component> tooltipConsumer, TooltipFlag tooltipFlag
     ) {
-        super.appendHoverText(stack, tooltipContext, tooltip, tooltipFlag);
+        super.appendHoverText(stack, tooltipContext, tooltipDisplay, tooltipConsumer, tooltipFlag);
+        java.util.List<Component> tooltip = new java.util.ArrayList<>();
+        // collected lines are flushed at the end of the method
         
         Data data = stack.get(COMPONENT_TYPE);
         
         if (data == null) {
+            tooltip.forEach(tooltipConsumer);
             return;
         }
         
@@ -178,17 +183,18 @@ public class CommandStickItem extends Item {
         }
         
         tooltip.add(Component.translatable("imm_ptl.command_stick").withStyle(ChatFormatting.GRAY));
+            tooltip.forEach(tooltipConsumer);
     }
     
     @Override
-    public @NotNull String getDescriptionId(ItemStack stack) {
+    public @NotNull Component getName(ItemStack stack) {
         Data data = stack.get(COMPONENT_TYPE);
         
         if (data == null) {
-            return "";
+            return super.getName(stack);
         }
         
-        return data.nameTranslationKey;
+        return Component.translatable(data.nameTranslationKey);
     }
     
     public static void sendMessage(Player player, Component message) {

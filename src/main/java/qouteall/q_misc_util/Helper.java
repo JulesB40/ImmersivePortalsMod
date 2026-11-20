@@ -59,6 +59,19 @@ import java.util.stream.Stream;
 
 // helper methods
 public class Helper {
+    // UUID NBT helpers (CompoundTag.putUUID/getUUID/hasUUID were removed). Same int-array format as before.
+    public static boolean hasUUID(net.minecraft.nbt.CompoundTag tag, String key) {
+        return tag.get(key) instanceof net.minecraft.nbt.IntArrayTag arr && arr.size() == 4;
+    }
+    
+    public static java.util.UUID getUUID(net.minecraft.nbt.CompoundTag tag, String key) {
+        return net.minecraft.core.UUIDUtil.uuidFromIntArray(tag.getIntArray(key).orElseThrow());
+    }
+    
+    public static void putUUID(net.minecraft.nbt.CompoundTag tag, String key, java.util.UUID uuid) {
+        tag.putIntArray(key, net.minecraft.core.UUIDUtil.uuidToIntArray(uuid));
+    }
+
     
     public static final Logger LOGGER = LogManager.getLogger("iPortal");
     

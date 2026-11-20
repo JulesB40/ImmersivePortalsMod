@@ -1,11 +1,12 @@
 package qouteall.imm_ptl.core.portal;
 
+import net.minecraft.resources.Identifier;
+
 import com.mojang.logging.LogUtils;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
 import net.minecraft.util.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -84,7 +85,7 @@ public class Portal extends Entity implements
     PortalLike, IPEntityEventListenableEntity {
     private static final Logger LOGGER = LogUtils.getLogger();
     
-    public static final EntityType<Portal> ENTITY_TYPE = createPortalEntityType(Portal::new);
+    public static final EntityType<Portal> ENTITY_TYPE = createPortalEntityType("portal", Portal::new);
     
     public static final Event<Consumer<Portal>> CLIENT_PORTAL_ACCEPT_SYNC_EVENT =
         Helper.createConsumerEvent();
@@ -92,19 +93,22 @@ public class Portal extends Entity implements
         Helper.createConsumerEvent();
     
     public static <T extends Portal> EntityType<T> createPortalEntityType(
+        String idPath,
         EntityType.EntityFactory<T> constructor
     ) {
-        return FabricEntityTypeBuilder.create(
-                MobCategory.MISC,
-                constructor
-            ).dimensions(
-                // eye height should be 0
-                EntityDimensions.fixed(0, 0)
-            ).fireImmune()
-            .trackRangeBlocks(96)
-            .trackedUpdateRate(20)
-            .forceTrackedVelocityUpdates(true)
-            .build();
+        EntityType.Builder<T> builder = EntityType.Builder.of(constructor, MobCategory.MISC)
+            // eye height should be 0
+            .sized(0, 0)
+            .eyeHeight(0)
+            .fireImmune()
+            .clientTrackingRange(96 / 16)
+            .updateInterval(20);
+        ((net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityType.Builder<T>) builder)
+            .alwaysUpdateVelocity(true);
+        return builder.build(ResourceKey.create(
+            net.minecraft.core.registries.Registries.ENTITY_TYPE,
+            Identifier.fromNamespaceAndPath("immersive_portals", idPath)
+        ));
     }
     
     private static final AABB NULL_BOX =
@@ -229,8 +233,25 @@ public class Portal extends Entity implements
         // nothing
     }
     
+
     @Override
-    protected void readAdditionalSaveData(CompoundTag compoundTag) {
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel level, net.minecraft.world.damagesource.DamageSource source, float damage) {
+        return false;
+    }
+    
+    @Override
+    protected final void readAdditionalSaveData(net.minecraft.world.level.storage.ValueInput input) {
+        readAdditionalNbt(qouteall.imm_ptl.core.mc_utils.NbtValueIO.readAll(input));
+    }
+    
+    @Override
+    protected final void addAdditionalSaveData(net.minecraft.world.level.storage.ValueOutput output) {
+        CompoundTag tag = new CompoundTag();
+        addAdditionalNbt(tag);
+        qouteall.imm_ptl.core.mc_utils.NbtValueIO.writeAll(output, tag);
+    }
+    
+    protected void readAdditionalNbt(CompoundTag compoundTag) {
         width = compoundTag.getDoubleOr("width", 0);
         height = compoundTag.getDoubleOr("height", 0);
         thickness = compoundTag.getDoubleOr("thickness", 0);
@@ -362,8 +383,7 @@ public class Portal extends Entity implements
         updateCache();
     }
     
-    @Override
-    protected void addAdditionalSaveData(CompoundTag compoundTag) {
+    protected void addAdditionalNbt(CompoundTag compoundTag) {
         compoundTag.putDouble("width", width);
         compoundTag.putDouble("height", height);
         compoundTag.putDouble("thickness", thickness);
@@ -539,7 +559,7 @@ public class Portal extends Entity implements
     
     public void reloadAndSyncToClientWithTickDelay(int tickDelay) {
         Validate.isTrue(!level().isClientSide(), "must be used on server side");
-        ServerTaskList.of(getServer()).addTask(MyTaskList.withDelay(tickDelay, () -> {
+        ServerTaskList.of(level().getServer()).addTask(MyTaskList.withDelay(tickDelay, () -> {
             reloadAndSyncToClientNextTick();
             return true;
         }));
@@ -721,7 +741,7 @@ public class Portal extends Entity implements
             return false;
         }
         
-        // cannot use entity.canChangeDimensions() because that disables riding entity to go through portal
+        // cannot use entity.canTeleport() because that disables riding entity to go through portal
         return ((ImmPtlEntityExtension) entity).imm_ptl_canTeleportThroughPortal(this);
     }
     
@@ -906,13 +926,13 @@ public class Portal extends Entity implements
         Validate.isTrue(!level().isClientSide());
         
         CompoundTag compoundTag = new CompoundTag();
-        addAdditionalSaveData(compoundTag);
+        addAdditionalNbt(compoundTag);
         
         // the listener generic parameter is contravariant. this is fine
         return (Packet<ClientGamePacketListener>) (Packet)
             ServerPlayNetworking.createClientboundPacket(new ImmPtlNetworking.PortalSyncPacket(
                 getId(), getUUID(), getType(),
-                PortalAPI.serverDimKeyToInt(getServer(), getOriginDim()),
+                PortalAPI.serverDimKeyToInt(level().getServer(), getOriginDim()),
                 getX(), getY(), getZ(),
                 compoundTag
             ));
@@ -958,7 +978,7 @@ public class Portal extends Entity implements
     }
     
     @Override
-    protected @NotNull AABB makeBoundingBox() {
+    protected @NotNull AABB makeBoundingBox(Vec3 position) {
         if (axisW == null) {
             // it may be called when the portal is not yet initialized
             boundingBoxCache = null;
@@ -1054,7 +1074,7 @@ public class Portal extends Entity implements
     }
     
     public Direction getApproximateFacingDirection() {
-        return Direction.getNearest(
+        return Direction.getApproximateNearest(
             getNormal().x, getNormal().y, getNormal().z
         );
     }
@@ -1308,7 +1328,7 @@ public class Portal extends Entity implements
             return CHelper.getClientWorld(dimensionTo);
         }
         else {
-            MinecraftServer server = getServer();
+            MinecraftServer server = level().getServer();
             assert server != null;
             return server.getLevel(dimensionTo);
         }
@@ -1657,7 +1677,7 @@ public class Portal extends Entity implements
         
         Vec3 newGravityVec = transformLocalVecNonScale(oldGravityVec);
         
-        return Direction.getNearest(
+        return Direction.getApproximateNearest(
             newGravityVec.x, newGravityVec.y, newGravityVec.z
         );
     }
@@ -1739,7 +1759,7 @@ public class Portal extends Entity implements
         PortalState oldState = getPortalState();
         
         setPos(pos);
-        readAdditionalSaveData(customData);
+        readAdditionalNbt(customData);
         
         if (animation.defaultAnimation.durationTicks > 0) {
             animation.defaultAnimation.startClientDefaultAnimation(this, oldState);
@@ -1750,13 +1770,13 @@ public class Portal extends Entity implements
     
     public CompoundTag writePortalDataToNbt() {
         CompoundTag nbtCompound = new CompoundTag();
-        addAdditionalSaveData(nbtCompound);
+        addAdditionalNbt(nbtCompound);
         return nbtCompound;
     }
     
     public void readPortalDataFromNbt(CompoundTag compound) {
         try {
-            readAdditionalSaveData(compound);
+            readAdditionalNbt(compound);
         }
         catch (Exception e) {
             LOGGER.error("Failed to read portal data from nbt {}", compound, e);
@@ -1865,7 +1885,7 @@ public class Portal extends Entity implements
         
         return McHelper.isServerChunkFullyLoaded(
             (ServerLevel) getDestWorld(),
-            new ChunkPos(BlockPos.containing(getDestPos()))
+            ChunkPos.containing(BlockPos.containing(getDestPos()))
         );
     }
     

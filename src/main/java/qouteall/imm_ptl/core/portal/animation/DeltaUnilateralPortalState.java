@@ -55,7 +55,7 @@ public record DeltaUnilateralPortalState(
             tag.contains("sizeScalingX") ? new Vec3(
                 tag.getDoubleOr("sizeScalingX", 0),
                 tag.getDoubleOr("sizeScalingY", 0),
-                tag.contains("sizeScalingZ") ? tag.getDouble("sizeScalingZ") : 1
+                tag.contains("sizeScalingZ") ? tag.getDoubleOr("sizeScalingZ", 1) : 1
             ) : null
         );
     }

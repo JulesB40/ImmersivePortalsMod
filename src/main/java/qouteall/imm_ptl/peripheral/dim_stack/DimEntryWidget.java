@@ -80,19 +80,17 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
     }
     
     @Override
-    public void render(
+    public void extractContent(
         @NotNull GuiGraphicsExtractor guiGraphics,
-        int index,
-        int y,
-        int x,
-        int rowWidth,
-        int itemHeight,
         int mouseX,
         int mouseY,
-        boolean bl,
+        boolean hovered,
         float delta
     ) {
         Minecraft client = Minecraft.getInstance();
+        int x = getContentX();
+        int y = getContentY();
+        int rowWidth = getContentWidth();
         
         guiGraphics.text(
             client.font, dimensionName.getString(),
@@ -108,21 +106,22 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
         
         if (dimIconPath != null) {
             guiGraphics.pose().pushMatrix();
-            guiGraphics.pose().translate(x, y, 0);
+            guiGraphics.pose().translate(x, y);
             
             int iconLen = widgetHeight - 4;
             
             if (entry != null && entry.flipped) {
-                guiGraphics.pose().rotateAround(
-                    DQuaternion.rotationByDegrees(new Vec3(0, 0, 1), 180).toMcQuaternion(),
-                    iconLen / 2.0f, iconLen / 2.0f, 0
+                guiGraphics.pose().rotateAbout(
+                    (float) Math.PI, iconLen / 2.0f, iconLen / 2.0f
                 );
             }
             
             guiGraphics.blit(
+                net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED,
                 dimIconPath, 0, 0, 0.0F, 0.0F,
                 iconLen, iconLen,
-                iconLen, iconLen
+                iconLen, iconLen,
+                -1
             );
             
             guiGraphics.pose().popMatrix();
@@ -142,8 +141,8 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
             
             if (arrowToPrevious != ArrowType.none) {
                 guiGraphics.pose().pushMatrix();
-                guiGraphics.pose().translate(x + rowWidth - 13, y, 0);
-                guiGraphics.pose().scale(1.5f, 1.5f, 1.5f);
+                guiGraphics.pose().translate(x + rowWidth - 13, y);
+                guiGraphics.pose().scale(1.5f, 1.5f);
                 guiGraphics.text(
                     client.font, Component.literal("↑"),
                     0, 0,
@@ -154,8 +153,8 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
             
             if (arrowToNext != ArrowType.none) {
                 guiGraphics.pose().pushMatrix();
-                guiGraphics.pose().translate(x + rowWidth - 13, y + widgetHeight - 14.5f, 0);
-                guiGraphics.pose().scale(1.5f, 1.5f, 1.5f);
+                guiGraphics.pose().translate(x + rowWidth - 13, y + widgetHeight - 14.5f);
+                guiGraphics.pose().scale(1.5f, 1.5f);
                 guiGraphics.text(
                     client.font, Component.literal("↓"),
                     0, 0,
@@ -186,9 +185,9 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
     }
     
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick) {
         selectCallback.accept(this);
-        super.mouseClicked(mouseX, mouseY, button);
+        super.mouseClicked(event, doubleClick);
         return true;//allow outer dragging
     }
     

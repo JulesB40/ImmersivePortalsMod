@@ -62,7 +62,7 @@ public abstract class MixinClientLevel implements IEClientWorld {
     @Mutable
     @Shadow
     @Final
-    private LevelRenderer levelRenderer;
+    private net.minecraft.client.renderer.extract.LevelExtractor levelExtractor;
     
     @Shadow
     @Final
@@ -100,8 +100,9 @@ public abstract class MixinClientLevel implements IEClientWorld {
     )
     void onConstructed(
         ClientPacketListener clientPacketListener, ClientLevel.ClientLevelData clientLevelData,
-        ResourceKey resourceKey, Holder holder, int loadDistance, int j, Supplier supplier,
-        LevelRenderer levelRenderer, boolean bl, long l, CallbackInfo ci
+        ResourceKey resourceKey, Holder holder, int loadDistance, int j,
+        net.minecraft.client.renderer.extract.LevelExtractor levelExtractor, boolean bl, long l, int seaLevel,
+        CallbackInfo ci
     ) {
         ClientLevel clientWorld = (ClientLevel) (Object) this;
         ClientChunkCache myClientChunkManager =
@@ -161,7 +162,7 @@ public abstract class MixinClientLevel implements IEClientWorld {
     
     @Override
     public void ip_resetWorldRendererRef() {
-        levelRenderer = null;
+        levelExtractor = null;
     }
     
     @Override

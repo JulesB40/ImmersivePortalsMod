@@ -17,39 +17,11 @@ import qouteall.imm_ptl.core.portal.PortalRenderInfo;
 import qouteall.imm_ptl.core.portal.animation.ClientPortalAnimationManagement;
 import qouteall.imm_ptl.core.portal.animation.StableClientTimer;
 import qouteall.imm_ptl.core.render.CrossPortalEntityRenderer;
-import qouteall.imm_ptl.core.render.ForceMainThreadRebuild;
-import qouteall.imm_ptl.core.render.GuiPortalRendering;
-import qouteall.imm_ptl.core.render.ImmPtlViewArea;
-import qouteall.imm_ptl.core.render.MyRenderHelper;
-import qouteall.imm_ptl.core.render.ShaderCodeTransformation;
-import qouteall.imm_ptl.core.render.VisibleSectionDiscovery;
-import qouteall.imm_ptl.core.render.context_management.CloudContext;
-import qouteall.imm_ptl.core.render.optimization.GLResourceCache;
-import qouteall.imm_ptl.core.render.optimization.SharedBlockMeshBuffers;
-import qouteall.imm_ptl.core.render.renderer.RendererUsingFrameBuffer;
-import qouteall.imm_ptl.core.render.renderer.RendererUsingStencil;
 import qouteall.imm_ptl.core.teleportation.ClientTeleportationManager;
 import qouteall.q_misc_util.dimension.DimensionIntId;
 import qouteall.q_misc_util.my_util.MyTaskList;
 
 public class IPModMainClient {
-    
-    private static void showNvidiaVideoCardWarning() {
-        IPGlobal.CLIENT_TASK_LIST.addTask(MyTaskList.withDelayCondition(
-            () -> Minecraft.getInstance().level == null,
-            MyTaskList.oneShotTask(() -> {
-                if (IPMcHelper.isNvidiaVideocard()) {
-                    if (!SodiumInterface.invoker.isSodiumPresent()) {
-                        CHelper.printChat(
-                            Component.translatable("imm_ptl.nvidia_warning")
-                                .withStyle(ChatFormatting.RED)
-                                .append(McHelper.getLinkText("https://github.com/CaffeineMC/sodium-fabric/issues/1486"))
-                        );
-                    }
-                }
-            })
-        ));
-    }
     
     private static void showQuiltWarning() {
         IPGlobal.CLIENT_TASK_LIST.addTask(MyTaskList.withDelayCondition(
@@ -72,30 +44,16 @@ public class IPModMainClient {
         
         ClientTeleportationManager.init();
         
-        Minecraft.getInstance().execute(() -> {
-            ShaderCodeTransformation.init();
-            
-            MyRenderHelper.init();
-            
-            IPCGlobal.rendererUsingStencil = new RendererUsingStencil();
-            IPCGlobal.rendererUsingFrameBuffer = new RendererUsingFrameBuffer();
-            
-            IPCGlobal.renderer = IPCGlobal.rendererUsingStencil;
-        });
+        // must be registered before the first resource reload (which compiles the pipelines)
+        qouteall.imm_ptl.core.render.view.PortalSurfaceRenderer.init();
         
         DubiousThings.init();
         
         CrossPortalEntityRenderer.init();
         
-        GLResourceCache.init();
-        
         CollisionHelper.initClient();
         
         PortalRenderInfo.init();
-        
-        CloudContext.init();
-        
-        SharedBlockMeshBuffers.init();
         
         GcMonitor.initClient();
         
@@ -105,25 +63,15 @@ public class IPModMainClient {
         
 //        showIntelVideoCardWarning();
         
-        showNvidiaVideoCardWarning();
-        
         showQuiltWarning();
         
         StableClientTimer.init();
         
         ClientPortalAnimationManagement.init();
         
-        VisibleSectionDiscovery.init();
-        
-        ImmPtlViewArea.init();
-        
     
-        GuiPortalRendering._init();
-        
         ImmPtlNetworking.initClient();
         ImmPtlNetworkConfig.initClient();
-        
-        ForceMainThreadRebuild.init();
         
         IPCGlobal.CLIENT_CLEANUP_EVENT.register(() -> {
             IPGlobal.CLIENT_TASK_LIST.forceClearTasks();

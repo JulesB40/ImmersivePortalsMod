@@ -258,7 +258,7 @@ public abstract class MixinLevelRenderer implements IEWorldRenderer {
     ) {
         if (WorldRenderInfo.isRendering()) {
             if (level.dimension() != RenderStates.originalPlayerDimension) {
-                sectionRenderDispatcher.setCamera(camera.getPosition());
+                sectionRenderDispatcher.setCamera(camera.position());
             }
         }
         

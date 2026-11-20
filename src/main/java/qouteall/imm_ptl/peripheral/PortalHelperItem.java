@@ -42,10 +42,14 @@ public class PortalHelperItem extends BlockItem {
     @Override
     public void appendHoverText(
         ItemStack itemStack, Item.TooltipContext tooltipContext,
-        List<Component> list, TooltipFlag tooltipFlag
+        net.minecraft.world.item.component.TooltipDisplay tooltipDisplay,
+        java.util.function.Consumer<Component> tooltipConsumer, TooltipFlag tooltipFlag
     ) {
-        super.appendHoverText(itemStack, tooltipContext, list, tooltipFlag);
+        super.appendHoverText(itemStack, tooltipContext, tooltipDisplay, tooltipConsumer, tooltipFlag);
+        java.util.List<Component> list = new java.util.ArrayList<>();
+        // collected lines are flushed at the end of the method
         
         list.add(Component.translatable("imm_ptl.portal_helper_tooltip"));
+            list.forEach(tooltipConsumer);
     }
 }

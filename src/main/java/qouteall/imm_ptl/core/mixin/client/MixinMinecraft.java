@@ -37,11 +37,6 @@ import java.util.function.Function;
 
 @Mixin(Minecraft.class)
 public abstract class MixinMinecraft implements IEMinecraftClient {
-    @Final
-    @Shadow
-    @Mutable
-    private RenderTarget mainRenderTarget;
-    
     @Shadow
     public Screen screen;
     
@@ -53,17 +48,14 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
     @Shadow
     private static int fps;
     
+    @Mutable
     @Shadow
-    public abstract ProfilerFiller getProfiler();
+    @Final
+    public net.minecraft.client.renderer.extract.LevelExtractor levelExtractor;
     
     @Shadow
     @Nullable
     public ClientLevel level;
-    
-    @Mutable
-    @Shadow
-    @Final
-    private RenderBuffers renderBuffers;
     
     @Shadow
     @Final
@@ -125,7 +117,7 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
         )
     )
     private void onAfterClientTick(CallbackInfo ci) {
-        getProfiler().push("imm_ptl_client_tick");
+        net.minecraft.util.profiling.Profiler.get().push("imm_ptl_client_tick");
         
         // including ticking remote worlds
         ClientWorldLoader.tick();
@@ -138,7 +130,7 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
         
         IPGlobal.POST_CLIENT_TICK_EVENT.invoker().run();
         
-        getProfiler().pop();
+        net.minecraft.util.profiling.Profiler.get().pop();
     }
     
     @Inject(
@@ -154,10 +146,10 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
     }
     
     @Inject(
-        method = "Lnet/minecraft/client/Minecraft;updateLevelInEngines(Lnet/minecraft/client/multiplayer/ClientLevel;)V",
+        method = "updateLevelInEngines(Lnet/minecraft/client/multiplayer/ClientLevel;Z)V",
         at = @At("HEAD")
     )
-    private void onSetWorld(ClientLevel clientLevel, CallbackInfo ci) {
+    private void onSetWorld(ClientLevel clientLevel, boolean stopSound, CallbackInfo ci) {
         if (ClientWorldLoader.getIsInitialized()) {
             LOGGER.info("Client cleanup");
             IPCGlobal.CLIENT_CLEANUP_EVENT.invoker().run();
@@ -174,30 +166,6 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
         }
     }
     
-    //avoid messing up rendering states in fabulous
-    @Inject(method = "Lnet/minecraft/client/Minecraft;useShaderTransparency()Z", at = @At("HEAD"), cancellable = true)
-    private static void onIsFabulousGraphicsOrBetter(CallbackInfoReturnable<Boolean> cir) {
-        if (WorldRenderInfo.isRendering()) {
-            cir.setReturnValue(false);
-        }
-    }
-    
-    @Inject(
-        method = "addInitialScreens",
-        at = @At("RETURN")
-    )
-    private void onAddInitialScreens(List<Function<Runnable, Screen>> output, CallbackInfo ci) {
-        IPConfig config = IPConfig.getConfig();
-        if (!config.initialScreenShown) {
-            output.add(IPortalInitialScreen::new);
-        }
-    }
-    
-    @Override
-    public void ip_setFrameBuffer(RenderTarget buffer) {
-        mainRenderTarget = buffer;
-    }
-    
     @Override
     public Screen ip_getCurrentScreen() {
         return screen;
@@ -209,8 +177,8 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
     }
     
     @Override
-    public void ip_setRenderBuffers(RenderBuffers arg) {
-        renderBuffers = arg;
+    public void ip_setLevelExtractor(net.minecraft.client.renderer.extract.LevelExtractor e) {
+        levelExtractor = e;
     }
     
     @Override

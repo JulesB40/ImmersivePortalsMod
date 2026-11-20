@@ -88,7 +88,7 @@ public class TransformationManager {
     private static void processTransformation(Camera camera, PoseStack matrixStack) {
         DQuaternion currentAnimationDelta = getCurrentAnimationDelta();
         if (currentAnimationDelta != null) {
-            matrixStack.mulPose(currentAnimationDelta.toMcQuaternion());
+            matrixStack.rotate(currentAnimationDelta.toMcQuaternion());
         }
         
         WorldRenderInfo.applyAdditionalTransformations(matrixStack);
@@ -229,13 +229,7 @@ public class TransformationManager {
     
     private static void updateCamera(Minecraft client) {
         Camera camera = client.gameRenderer.mainCamera();
-        camera.setup(
-            client.level,
-            client.player,
-            !client.options.getCameraType().isFirstPerson(),
-            client.options.getCameraType().isMirrored(),
-            RenderStates.getPartialTick()
-        );
+        camera.update(client.getDeltaTracker());
     }
     
     public static Matrix4f getMirrorTransformation(Vec3 normal) {
@@ -307,7 +301,7 @@ public class TransformationManager {
     }
     
     public static Vec3 getIsometricAdjustedCameraPos(Camera camera) {
-        Vec3 cameraPos = camera.getPosition();
+        Vec3 cameraPos = camera.position();
         
         if (!isIsometricView) {
             return cameraPos;

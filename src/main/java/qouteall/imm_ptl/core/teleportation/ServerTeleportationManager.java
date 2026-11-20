@@ -119,7 +119,7 @@ public class ServerTeleportationManager {
         if (entity.isRemoved()) {
             return;
         }
-        if (!entity.canChangeDimensions(entity.level(), portal.getDestinationWorld())) {
+        if (!entity.canTeleport(entity.level(), portal.getDestinationWorld())) {
             return;
         }
         if (isJustTeleported(entity, 1)) {
@@ -555,7 +555,7 @@ public class ServerTeleportationManager {
             passengerList.stream().map(
                 e -> changeEntityDimension(e, portal.getDestDim(), newEyePos, true)
             ).collect(Collectors.toList()).forEach(e -> {
-                e.startRiding(newEntity, true);
+                e.startRiding(newEntity, true, true);
             });
         }
         
@@ -832,7 +832,7 @@ public class ServerTeleportationManager {
         for (ServerPlayer player : players) {
             if (player.level().dimension() == world.dimension()) {
                 ServerLevel overWorld = McHelper.getOverWorldOnServer();
-                BlockPos spawnPos = overWorld.getSharedSpawnPos();
+                BlockPos spawnPos = overWorld.getRespawnData().pos();
                 
                 forceTeleportPlayer(
                     player, Level.OVERWORLD, Vec3.atCenterOf(spawnPos)

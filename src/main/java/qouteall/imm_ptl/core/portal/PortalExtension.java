@@ -100,20 +100,20 @@ public class PortalExtension {
             bindCluster = true;
         }
         
-        if (compoundTag.hasUUID("reversePortalId")) {
-            reversePortalId = compoundTag.getUUID("reversePortalId");
+        if (qouteall.q_misc_util.Helper.hasUUID(compoundTag, "reversePortalId")) {
+            reversePortalId = qouteall.q_misc_util.Helper.getUUID(compoundTag, "reversePortalId");
         }
         else {
             reversePortalId = null;
         }
-        if (compoundTag.hasUUID("flippedPortalId")) {
-            flippedPortalId = compoundTag.getUUID("flippedPortalId");
+        if (qouteall.q_misc_util.Helper.hasUUID(compoundTag, "flippedPortalId")) {
+            flippedPortalId = qouteall.q_misc_util.Helper.getUUID(compoundTag, "flippedPortalId");
         }
         else {
             flippedPortalId = null;
         }
-        if (compoundTag.hasUUID("parallelPortalId")) {
-            parallelPortalId = compoundTag.getUUID("parallelPortalId");
+        if (qouteall.q_misc_util.Helper.hasUUID(compoundTag, "parallelPortalId")) {
+            parallelPortalId = qouteall.q_misc_util.Helper.getUUID(compoundTag, "parallelPortalId");
         }
         else {
             parallelPortalId = null;
@@ -127,13 +127,13 @@ public class PortalExtension {
         compoundTag.putBoolean("adjustPositionAfterTeleport", adjustPositionAfterTeleport);
         compoundTag.putBoolean("bindCluster", bindCluster);
         if (reversePortalId != null) {
-            compoundTag.putUUID("reversePortalId", reversePortalId);
+            qouteall.q_misc_util.Helper.putUUID(compoundTag, "reversePortalId", reversePortalId);
         }
         if (flippedPortalId != null) {
-            compoundTag.putUUID("flippedPortalId", flippedPortalId);
+            qouteall.q_misc_util.Helper.putUUID(compoundTag, "flippedPortalId", flippedPortalId);
         }
         if (parallelPortalId != null) {
-            compoundTag.putUUID("parallelPortalId", parallelPortalId);
+            qouteall.q_misc_util.Helper.putUUID(compoundTag, "parallelPortalId", parallelPortalId);
         }
     }
     

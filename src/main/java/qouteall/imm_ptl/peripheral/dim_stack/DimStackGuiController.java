@@ -9,7 +9,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import org.apache.commons.lang3.Validate;
 import qouteall.imm_ptl.core.portal.global_portals.VerticalConnectingPortal;
-import qouteall.imm_ptl.peripheral.alternate_dimension.AlternateDimensions;
 import qouteall.q_misc_util.Helper;
 
 import java.util.ArrayList;
@@ -181,9 +180,6 @@ public class DimStackGuiController {
             
             List<DimStackEntry> entriesToAdd = new ArrayList<>();
             
-            entriesToAdd.add(new DimStackEntry(AlternateDimensions.BRIGHT_VOID));
-            entriesToAdd.add(new DimStackEntry(AlternateDimensions.BRIGHT_SKYLAND));
-            
             entriesToAdd.add(new DimStackEntry(Level.OVERWORLD));
             entriesToAdd.add(new DimStackEntry(Level.NETHER));
             
@@ -205,9 +201,9 @@ public class DimStackGuiController {
     }
     
     private void showConflictingAlert() {
-        Minecraft.getInstance().setScreen(new AlertScreen(
+        Minecraft.getInstance().gui.setScreen(new AlertScreen(
             () -> {
-                Minecraft.getInstance().setScreen(view);
+                Minecraft.getInstance().gui.setScreen(view);
             },
             Component.translatable("imm_ptl.conflicting_dim_stack")
                 .withStyle(ChatFormatting.RED),
@@ -247,9 +243,9 @@ public class DimStackGuiController {
         else {
             DimStackManagement.setDimStackPreset(model.getResult());
             
-            Minecraft.getInstance().setScreen(new AlertScreen(
+            Minecraft.getInstance().gui.setScreen(new AlertScreen(
                 () -> {
-                    Minecraft.getInstance().setScreen(view);
+                    Minecraft.getInstance().gui.setScreen(view);
                 },
                 Component.literal(""),
                 Component.translatable("imm_ptl.dim_stack_default_updated")

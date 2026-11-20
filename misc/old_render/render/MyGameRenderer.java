@@ -293,7 +293,7 @@ public class MyGameRenderer {
         Camera camera = client.gameRenderer.mainCamera();
         float g = client.gameRenderer.getRenderDistance();
         
-        Vec3 cameraPos = camera.getPosition();
+        Vec3 cameraPos = camera.position();
         double x = cameraPos.x();
         double y = cameraPos.y();
         double z = cameraPos.z();
