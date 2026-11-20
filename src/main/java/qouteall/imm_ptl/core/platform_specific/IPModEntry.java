@@ -30,7 +30,7 @@ public class IPModEntry implements ModInitializer {
         }
         
         if (FabricLoader.getInstance().isModLoaded("gravity_changer_q")) {
-            GravityChangerInterface.invoker = new GravityChangerInterface.OnGravityChangerPresent();
+            Helper.log("Gravity Changer integration is not available on this version");
             Helper.log("Gravity API is present");
         }
         else {

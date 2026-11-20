@@ -2,14 +2,14 @@ package qouteall.imm_ptl.peripheral.dim_stack;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ContainerObjectSelectionList;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
@@ -35,7 +35,7 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
     public final DimListWidget parent;
     private final Consumer<DimEntryWidget> selectCallback;
     @Nullable
-    private final ResourceLocation dimIconPath;
+    private final Identifier dimIconPath;
     private final Component dimensionName;
     
     // if null, it's in select dimension screen
@@ -81,7 +81,7 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
     
     @Override
     public void render(
-        @NotNull GuiGraphics guiGraphics,
+        @NotNull GuiGraphicsExtractor guiGraphics,
         int index,
         int y,
         int x,
@@ -94,20 +94,20 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
     ) {
         Minecraft client = Minecraft.getInstance();
         
-        guiGraphics.drawString(
+        guiGraphics.text(
             client.font, dimensionName.getString(),
             x + widgetHeight + 3, (int) (y),
             0xFFFFFFFF
         );
         
-        guiGraphics.drawString(
-            client.font, dimension.location().toString(),
+        guiGraphics.text(
+            client.font, dimension.identifier().toString(),
             x + widgetHeight + 3, (int) (y + 10),
             0xFF999999
         );
         
         if (dimIconPath != null) {
-            guiGraphics.pose().pushPose();
+            guiGraphics.pose().pushMatrix();
             guiGraphics.pose().translate(x, y, 0);
             
             int iconLen = widgetHeight - 4;
@@ -125,43 +125,43 @@ public class DimEntryWidget extends ContainerObjectSelectionList.Entry<DimEntryW
                 iconLen, iconLen
             );
             
-            guiGraphics.pose().popPose();
+            guiGraphics.pose().popMatrix();
         }
         
         if (entry != null) {
-            guiGraphics.drawString(
+            guiGraphics.text(
                 client.font, getText1(),
                 x + widgetHeight + 3, (int) (y + 20),
                 0xFF999999
             );
-            guiGraphics.drawString(
+            guiGraphics.text(
                 client.font, getText2(),
                 x + widgetHeight + 3, (int) (y + 30),
                 0xFF999999
             );
             
             if (arrowToPrevious != ArrowType.none) {
-                guiGraphics.pose().pushPose();
+                guiGraphics.pose().pushMatrix();
                 guiGraphics.pose().translate(x + rowWidth - 13, y, 0);
                 guiGraphics.pose().scale(1.5f, 1.5f, 1.5f);
-                guiGraphics.drawString(
+                guiGraphics.text(
                     client.font, Component.literal("↑"),
                     0, 0,
                     arrowToPrevious == ArrowType.enabled ? 0xFF999999 : 0xFFFF0000
                 );
-                guiGraphics.pose().popPose();
+                guiGraphics.pose().popMatrix();
             }
             
             if (arrowToNext != ArrowType.none) {
-                guiGraphics.pose().pushPose();
+                guiGraphics.pose().pushMatrix();
                 guiGraphics.pose().translate(x + rowWidth - 13, y + widgetHeight - 14.5f, 0);
                 guiGraphics.pose().scale(1.5f, 1.5f, 1.5f);
-                guiGraphics.drawString(
+                guiGraphics.text(
                     client.font, Component.literal("↓"),
                     0, 0,
                     arrowToNext == ArrowType.enabled ? 0xFF999999 : 0xFFFF0000
                 );
-                guiGraphics.pose().popPose();
+                guiGraphics.pose().popMatrix();
             }
         }
     }

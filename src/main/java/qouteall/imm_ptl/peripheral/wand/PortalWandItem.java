@@ -19,7 +19,6 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -98,7 +97,7 @@ public class PortalWandItem extends Item {
         public static final Mode FALLBACK = CREATE_PORTAL;
         
         public static Mode fromTag(CompoundTag tag) {
-            String mode = tag.getString("mode");
+            String mode = tag.getStringOr("mode", "");
             
             return fromStr(mode);
         }
@@ -179,7 +178,7 @@ public class PortalWandItem extends Item {
     }
     
     @Override
-    public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
+    public InteractionResult<ItemStack> use(Level world, Player player, InteractionHand hand) {
         ItemStack itemStack = player.getItemInHand(hand);
         Mode mode = itemStack.getOrDefault(COMPONENT_TYPE, Mode.FALLBACK);
         
@@ -188,7 +187,7 @@ public class PortalWandItem extends Item {
                 if (!PortalWandInteraction.isDragging(((ServerPlayer) player))) {
                     Mode nextMode = mode.next();
                     itemStack.set(COMPONENT_TYPE, nextMode);
-                    return new InteractionResultHolder<>(InteractionResult.SUCCESS, itemStack);
+                    return new InteractionResult<>(InteractionResult.SUCCESS, itemStack);
                 }
             }
         }

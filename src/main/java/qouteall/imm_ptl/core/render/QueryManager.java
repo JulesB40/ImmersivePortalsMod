@@ -18,7 +18,7 @@ public class QueryManager {
         }
         
         //mac does not support GL_ANY_SAMPLES_PASSED
-        if (Minecraft.ON_OSX) {
+        if ((net.minecraft.util.Util.getPlatform() == net.minecraft.util.Util.OS.OSX)) {
             return renderAndGetSampleCountPassed(renderingFunc) > 0;
         }
         

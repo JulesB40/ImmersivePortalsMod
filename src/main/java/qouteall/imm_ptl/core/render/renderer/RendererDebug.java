@@ -65,7 +65,7 @@ public class RendererDebug extends PortalRenderer {
         GlStateManager._clearDepth(1);
         GlStateManager._clear(
             GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT,
-            Minecraft.ON_OSX
+            (net.minecraft.util.Util.getPlatform() == net.minecraft.util.Util.OS.OSX)
         );
         GL11.glDisable(GL11.GL_STENCIL_TEST);
         

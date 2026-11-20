@@ -18,7 +18,7 @@ public class GlQueryObject {
     
     public void performQueryAnySamplePassed(Runnable renderingFunc) {
         // mac does not support any samples passed query
-        if (Minecraft.ON_OSX) {
+        if ((net.minecraft.util.Util.getPlatform() == net.minecraft.util.Util.OS.OSX)) {
             performQuerySampleNumPassed(renderingFunc);
             return;
         }

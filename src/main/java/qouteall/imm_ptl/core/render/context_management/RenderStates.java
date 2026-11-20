@@ -114,7 +114,7 @@ public class RenderStates {
         updateViewBobbingFactor(cameraEntity);
         
         basicProjectionMatrix = null;
-        originalCamera = MyRenderHelper.client.gameRenderer.getMainCamera();
+        originalCamera = MyRenderHelper.client.gameRenderer.mainCamera();
         
         updateIsLaggy();
         
@@ -145,7 +145,7 @@ public class RenderStates {
         else {
             if (lastPortalRenderInfos.size() > 10) {
                 if (ClientPerformanceMonitor.getAverageFps() < 8 || ClientPerformanceMonitor.getMinimumFps() < 6) {
-                    MyRenderHelper.client.gui.setOverlayMessage(
+                    MyRenderHelper.client.gui.hud.setOverlayMessage(
                         Component.translatable("imm_ptl.laggy"),
                         false
                     );
@@ -210,7 +210,7 @@ public class RenderStates {
         gameRenderer.ip_setLightmapTextureManager(ClientWorldLoader
             .getDimensionRenderHelper(client.level.dimension()).lightmapTexture);
         
-        Vec3 currCameraPos = client.gameRenderer.getMainCamera().getPosition();
+        Vec3 currCameraPos = client.gameRenderer.mainCamera().getPosition();
         cameraPosDelta = currCameraPos.subtract(lastCameraPos);
         if (cameraPosDelta.lengthSqr() > 1) {
             cameraPosDelta = Vec3.ZERO;

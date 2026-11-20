@@ -13,7 +13,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.client.renderer.chunk.SectionRenderDispatcher;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceProvider;
 import net.minecraft.util.Mth;
@@ -110,8 +110,8 @@ public class MyRenderHelper {
     private static ResourceProvider getResourceFactory(ResourceProvider resourceManager) {
         ResourceProvider resourceFactory = new ResourceProvider() {
             @Override
-            public Optional<Resource> getResource(ResourceLocation resourceLocation) {
-                ResourceLocation corrected = McHelper.newResourceLocation(
+            public Optional<Resource> getResource(Identifier resourceLocation) {
+                Identifier corrected = McHelper.newResourceLocation(
                     "immersive_portals", resourceLocation.getPath());
                 return resourceManager.getResource(corrected);
             }
@@ -477,8 +477,8 @@ public class MyRenderHelper {
         }
         debugEnabled = false;
         
-        int width = client.getMainRenderTarget().width;
-        int height = client.getMainRenderTarget().height;
+        int width = client.gameRenderer.mainRenderTarget().width;
+        int height = client.gameRenderer.mainRenderTarget().height;
         
         
         ByteBuffer directBuffer = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.LITTLE_ENDIAN);
@@ -528,8 +528,8 @@ public class MyRenderHelper {
         }
         debugEnabled = false;
         
-        int width = client.getMainRenderTarget().width;
-        int height = client.getMainRenderTarget().height;
+        int width = client.gameRenderer.mainRenderTarget().width;
+        int height = client.gameRenderer.mainRenderTarget().height;
         
         
         ByteBuffer directBuffer = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.LITTLE_ENDIAN);

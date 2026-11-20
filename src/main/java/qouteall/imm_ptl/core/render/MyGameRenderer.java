@@ -1,6 +1,7 @@
 package qouteall.imm_ptl.core.render;
 
-import com.mojang.blaze3d.platform.Lighting;
+
+import net.minecraft.util.profiling.Profiler;import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.fabricmc.api.EnvType;
@@ -147,7 +148,7 @@ public class MyGameRenderer {
         ObjectArrayList<SectionRenderDispatcher.RenderSection> oldChunkInfoList =
             ((IEWorldRenderer) oldWorldRenderer).portal_getChunkInfoList();
         HitResult oldCrosshairTarget = client.hitResult;
-        Camera oldCamera = client.gameRenderer.getMainCamera();
+        Camera oldCamera = client.gameRenderer.mainCamera();
         PostChain oldTransparencyShader = ((IEWorldRenderer) worldRenderer).portal_getTransparencyShader();
         RenderBuffers oldRenderBuffers = ((IEWorldRenderer) worldRenderer).ip_getRenderBuffers();
         RenderBuffers oldClientRenderBuffers = client.renderBuffers();
@@ -227,11 +228,11 @@ public class MyGameRenderer {
         
         //invoke rendering
         invokeWrapper.accept(() -> {
-            client.getProfiler().push("render_portal_content");
+            Profiler.get().push("render_portal_content");
             client.gameRenderer.renderLevel(
                 client.getTimer()
             );
-            client.getProfiler().pop();
+            Profiler.get().pop();
         });
         
         SodiumInterface.invoker.switchContextWithCurrentWorldRenderer(newSodiumContext);
@@ -289,7 +290,7 @@ public class MyGameRenderer {
      */
     @IPVanillaCopy
     public static void resetFogState() {
-        Camera camera = client.gameRenderer.getMainCamera();
+        Camera camera = client.gameRenderer.mainCamera();
         float g = client.gameRenderer.getRenderDistance();
         
         Vec3 cameraPos = camera.getPosition();
@@ -298,7 +299,7 @@ public class MyGameRenderer {
         double z = cameraPos.z();
         
         boolean isFoggy = client.level.effects().isFoggyAt(Mth.floor(x), Mth.floor(y)) ||
-            client.gui.getBossOverlay().shouldCreateWorldFog();
+            client.gui.hud.getBossOverlay().shouldCreateWorldFog();
         
         FogRenderer.setupFog(
             camera, FogRenderer.FogMode.FOG_TERRAIN, Math.max(g, 32.0F), isFoggy, RenderStates.getPartialTick()
@@ -308,7 +309,7 @@ public class MyGameRenderer {
     
     public static void updateFogColor() {
         FogRenderer.setupColor(
-            client.gameRenderer.getMainCamera(),
+            client.gameRenderer.mainCamera(),
             RenderStates.getPartialTick(),
             client.level,
             client.options.getEffectiveRenderDistance(),

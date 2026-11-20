@@ -52,7 +52,7 @@ public class GuiPortalRendering {
         
         MyRenderHelper.restoreViewPort();
         
-        RenderTarget mcFb = MyGameRenderer.client.getMainRenderTarget();
+        RenderTarget mcFb = MyGameRenderer.client.gameRenderer.mainRenderTarget();
         
         Validate.isTrue(mcFb != framebuffer);
         
@@ -99,7 +99,7 @@ public class GuiPortalRendering {
         
         Validate.isTrue(!renderingTasks.containsKey(renderTarget));
         
-        RenderTarget mcFB = Minecraft.getInstance().getMainRenderTarget();
+        RenderTarget mcFB = Minecraft.getInstance().gameRenderer.mainRenderTarget();
         if (renderTarget.width != mcFB.width || renderTarget.height != mcFB.height) {
             renderTarget.resize(mcFB.width, mcFB.height, true);
             LOGGER.info("Resized Framebuffer for GUI Portal Rendering");

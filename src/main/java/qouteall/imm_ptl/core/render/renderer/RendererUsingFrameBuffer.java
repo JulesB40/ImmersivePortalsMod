@@ -51,7 +51,7 @@ public class RendererUsingFrameBuffer extends PortalRenderer {
         
         GL11.glDisable(GL11.GL_STENCIL_TEST);
     
-        IPPortingLibCompat.setIsStencilEnabled(client.getMainRenderTarget(), false);
+        IPPortingLibCompat.setIsStencilEnabled(client.gameRenderer.mainRenderTarget(), false);
 //        ((IEFrameBuffer) client.getMainRenderTarget()).setIsStencilBufferEnabledAndReload(false);
     }
     
@@ -70,7 +70,7 @@ public class RendererUsingFrameBuffer extends PortalRenderer {
         
         PortalRendering.pushPortalLayer(portal);
         
-        RenderTarget oldFrameBuffer = client.getMainRenderTarget();
+        RenderTarget oldFrameBuffer = client.gameRenderer.mainRenderTarget();
         
         ((IEMinecraftClient) client).ip_setFrameBuffer(secondaryFrameBuffer.fb);
         secondaryFrameBuffer.fb.bindWrite(true);
@@ -79,7 +79,7 @@ public class RendererUsingFrameBuffer extends PortalRenderer {
         GlStateManager._clearDepth(1);
         GlStateManager._clear(
             GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT,
-            Minecraft.ON_OSX
+            (net.minecraft.util.Util.getPlatform() == net.minecraft.util.Util.OS.OSX)
         );
         GL11.glDisable(GL11.GL_STENCIL_TEST);
         

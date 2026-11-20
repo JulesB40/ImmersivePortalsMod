@@ -10,7 +10,7 @@ public class SecondaryFrameBuffer {
     public TextureTarget fb;
     
     public void prepare() {
-        RenderTarget mainFrameBuffer = Minecraft.getInstance().getMainRenderTarget();
+        RenderTarget mainFrameBuffer = Minecraft.getInstance().gameRenderer.mainRenderTarget();
         int width = mainFrameBuffer.viewWidth;
         int height = mainFrameBuffer.viewHeight;
         prepare(width, height);
@@ -21,7 +21,7 @@ public class SecondaryFrameBuffer {
             fb = new TextureTarget(
                 width, height,
                 true,//has depth attachment
-                Minecraft.ON_OSX
+                (net.minecraft.util.Util.getPlatform() == net.minecraft.util.Util.OS.OSX)
             );
             fb.checkStatus();
             Helper.log("Secondary Framebuffer init");
@@ -30,7 +30,7 @@ public class SecondaryFrameBuffer {
             height != fb.viewHeight
         ) {
             fb.resize(
-                width, height, Minecraft.ON_OSX
+                width, height, (net.minecraft.util.Util.getPlatform() == net.minecraft.util.Util.OS.OSX)
             );
             fb.checkStatus();
             Helper.log("Secondary Framebuffer resized");

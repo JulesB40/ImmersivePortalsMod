@@ -5,7 +5,7 @@ import com.mojang.blaze3d.pipeline.TextureTarget;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -144,7 +144,7 @@ public class ExampleGuiPortalRendering {
         }
         
         @Override
-        public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+        public void render(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
             super.render(guiGraphics, mouseX, mouseY, delta);
             
             double t1 = CHelper.getSmoothCycles(503);
@@ -193,7 +193,7 @@ public class ExampleGuiPortalRendering {
                 (int) (h * 0.2f), (int) (h * 0.8f)
             );
             
-            guiGraphics.drawCenteredString(
+            guiGraphics.centeredText(
                 this.font, this.title, this.width / 2, 70, 16777215
             );
         }

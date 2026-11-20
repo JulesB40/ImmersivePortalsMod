@@ -28,6 +28,38 @@ import java.lang.reflect.Type;
 import java.nio.file.Path;
 
 public class MiscHelper {
+    /**
+     * Replacement for the removed {@code CommandSourceStack.hasPermission(int)}.
+     */
+    public static boolean hasPermissionLevel(net.minecraft.commands.CommandSourceStack source, int level) {
+        return hasPermissionLevel(source.permissions(), level);
+    }
+    
+    public static boolean hasPermissionLevel(net.minecraft.server.permissions.PermissionSet permissions, int level) {
+        net.minecraft.server.permissions.Permission permission = switch (level) {
+            case 0 -> null;
+            case 1 -> net.minecraft.server.permissions.Permissions.COMMANDS_MODERATOR;
+            case 2 -> net.minecraft.server.permissions.Permissions.COMMANDS_GAMEMASTER;
+            case 3 -> net.minecraft.server.permissions.Permissions.COMMANDS_ADMIN;
+            default -> net.minecraft.server.permissions.Permissions.COMMANDS_OWNER;
+        };
+        return permission == null || permissions.hasPermission(permission);
+    }
+    
+    /**
+     * Replacement for the removed {@code Direction.fromDelta}.
+     */
+    @org.jetbrains.annotations.Nullable
+    public static net.minecraft.core.Direction directionFromDelta(int x, int y, int z) {
+        for (net.minecraft.core.Direction direction : net.minecraft.core.Direction.values()) {
+            net.minecraft.core.Vec3i v = direction.getUnitVec3i();
+            if (v.getX() == x && v.getY() == y && v.getZ() == z) {
+                return direction;
+            }
+        }
+        return null;
+    }
+
     
     private static final Logger LOGGER = LogManager.getLogger();
     
@@ -44,7 +76,7 @@ public class MiscHelper {
         
         @Override
         public JsonElement serialize(ResourceKey<Level> src, Type typeOfSrc, JsonSerializationContext context) {
-            return new JsonPrimitive(src.location().toString());
+            return new JsonPrimitive(src.identifier().toString());
         }
     }
     
