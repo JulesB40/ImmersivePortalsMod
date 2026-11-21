@@ -40,6 +40,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.slf4j.Logger;
 import qouteall.imm_ptl.core.ClientWorldLoader;
+import qouteall.imm_ptl.core.compat.sodium_compatibility.SodiumInterface;
 import qouteall.imm_ptl.core.IPGlobal;
 import qouteall.imm_ptl.core.block_manipulation.BlockManipulationClient;
 import qouteall.imm_ptl.core.ducks.IEMinecraftClient;
@@ -147,6 +148,7 @@ public final class PortalViewRenderer {
         public @Nullable GpuTextureView lightmapOverride;
         public @Nullable Lighting lightingOverride;
         public @Nullable PortalCamera camera;
+        public @Nullable net.minecraft.client.renderer.fog.FogData fogData;
         public boolean isExtracting;
         public boolean isRendering;
 
@@ -161,6 +163,7 @@ public final class PortalViewRenderer {
             lightmapOverride = null;
             lightingOverride = null;
             camera = null;
+            fogData = null;
             isExtracting = false;
             isRendering = false;
             sharedRenderer = false;
@@ -498,7 +501,10 @@ public final class PortalViewRenderer {
         view.inPlayerWorld = (dim == playerDim);
         LevelRenderer renderer;
         LevelExtractor extractor;
-        if (view.inPlayerWorld && isFarFromPlayerView(view)) {
+        // Sodium culls asynchronously based on its camera, so it cannot share a renderer between two cameras
+        boolean useSeparateRenderer = view.inPlayerWorld &&
+            (isFarFromPlayerView(view) || SodiumInterface.invoker.isSodiumPresent());
+        if (useSeparateRenderer) {
             // the player's renderer only holds the sections around the player
             renderer = ClientWorldLoader.getFarViewRenderer(dim);
             extractor = ClientWorldLoader.getFarViewExtractor(dim);
@@ -544,6 +550,12 @@ public final class PortalViewRenderer {
                 view.lightmapOverride = dimHelper.updateAndGetLightmap(frameIndex, partialTicks);
             }
 
+            // the fog is needed during extraction (Sodium's terrain culling reads the fog distance)
+            view.fogData = res.fogRenderer.setupFog(
+                view.camera, view.renderDistance, deltaTracker,
+                client.gameRenderer.bossOverlayWorldDarkening(partialTicks), view.world
+            );
+            
             profiler.push("extract");
             long t0 = System.nanoTime();
             extractor.extract(deltaTracker, view.camera, partialTicks);
@@ -571,7 +583,13 @@ public final class PortalViewRenderer {
             view.isRendering = true;
             profiler.push("render");
             long t1 = System.nanoTime();
-            renderExtractedView(view, res);
+            Object sodiumProjectionState = SodiumInterface.invoker.overrideProjection(view.projection);
+            try {
+                renderExtractedView(view, res);
+            }
+            finally {
+                SodiumInterface.invoker.restoreProjection(sodiumProjectionState);
+            }
             lastRenderNanos = System.nanoTime() - t1;
             profiler.pop();
             view.isRendering = false;
@@ -620,10 +638,7 @@ public final class PortalViewRenderer {
         cs.hudFov = main.hudFov;
         cs.entityRenderState = main.entityRenderState;
         cs.fogType = camera.getFluidInCamera();
-        cs.fogData = res.fogRenderer.setupFog(
-            camera, view.renderDistance, deltaTracker,
-            client.gameRenderer.bossOverlayWorldDarkening(partialTicks), view.world
-        );
+        cs.fogData = view.fogData;
     }
 
     /**
@@ -734,6 +749,7 @@ public final class PortalViewRenderer {
         private LevelRenderState extractorState;
         private ObjectArrayList<SectionRenderDispatcher.RenderSection> visibleSections;
         private ObjectArrayList<SectionRenderDispatcher.RenderSection> nearbyVisibleSections;
+        private net.minecraft.client.renderer.fog.FogRenderer fogRenderer;
 
         void save(LevelRenderer renderer, LevelExtractor extractor) {
             level = client.level;
@@ -744,6 +760,7 @@ public final class PortalViewRenderer {
             extractorState = ((IELevelExtractor) extractor).ip_getLevelRenderState();
             visibleSections = ((IELevelRenderer) renderer).ip_getVisibleSections();
             nearbyVisibleSections = ((IELevelRenderer) renderer).ip_getNearbyVisibleSections();
+            fogRenderer = ((IEGameRendererView) client.gameRenderer).ip_getFogRenderer();
         }
 
         void apply(ViewContext view, ViewLayerResources res) {
@@ -763,6 +780,8 @@ public final class PortalViewRenderer {
             ((IELevelExtractor) extractor).ip_setLevelRenderState(res.levelRenderState);
             ((IELevelRenderer) renderer).ip_setVisibleSections(res.visibleSections);
             ((IELevelRenderer) renderer).ip_setNearbyVisibleSections(res.nearbyVisibleSections);
+            // the fog of this view (Sodium reads the fog parameters from the game renderer's fog renderer)
+            ((IEGameRendererView) client.gameRenderer).ip_setFogRenderer(res.fogRenderer);
         }
 
         void restore(LevelRenderer renderer, LevelExtractor extractor) {
@@ -774,6 +793,7 @@ public final class PortalViewRenderer {
             ((IEMinecraftClient) client).ip_setWorldRenderer(levelRenderer);
             ((IEMinecraftClient) client).ip_setLevelExtractor(levelExtractor);
             client.hitResult = hitResult;
+            ((IEGameRendererView) client.gameRenderer).ip_setFogRenderer(fogRenderer);
         }
     }
 

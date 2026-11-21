@@ -7,5 +7,7 @@
   "injectors": {
     "defaultRequire": 1
   },
-  "client": []
+  "client": [
+    "sodium.MixinSodiumWorldRenderer_IP"
+  ]
 }

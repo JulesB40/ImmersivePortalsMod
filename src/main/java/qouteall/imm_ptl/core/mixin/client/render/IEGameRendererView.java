@@ -19,6 +19,10 @@ public interface IEGameRendererView {
     @Accessor("fogRenderer")
     FogRenderer ip_getFogRenderer();
     
+    @org.spongepowered.asm.mixin.Mutable
+    @Accessor("fogRenderer")
+    void ip_setFogRenderer(FogRenderer fogRenderer);
+    
     @Accessor("mainRenderTarget")
     com.mojang.blaze3d.pipeline.RenderTarget ip_getVanillaMainRenderTarget();
     

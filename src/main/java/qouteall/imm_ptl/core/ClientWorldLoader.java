@@ -217,7 +217,7 @@ public class ClientWorldLoader {
             return;
         }
         if (extractor != null) {
-            extractor.setLevel(null);
+            withRendererBound(worldRenderer, extractor, () -> extractor.setLevel(null));
         }
         worldRenderer.close();
     }
@@ -311,8 +311,12 @@ public class ClientWorldLoader {
         LevelExtractor extractor = new LevelExtractor(
             CLIENT, CLIENT.gameRenderer.gameRenderState().levelRenderState, renderer
         );
-        extractor.onResourceManagerReload(CLIENT.getResourceManager());
-        extractor.setLevel(world);
+        LevelRenderer renderer_ = renderer;
+        withRendererBound(renderer_, extractor, () -> {
+            extractor.onResourceManagerReload(CLIENT.getResourceManager());
+            extractor.setLevel(world);
+        });
+        qouteall.imm_ptl.core.compat.sodium_compatibility.SodiumInterface.invoker.onSecondaryRendererCreated(renderer);
         FAR_VIEW_RENDERER_MAP.put(dimension, renderer);
         FAR_VIEW_EXTRACTOR_MAP.put(dimension, extractor);
         LOGGER.info("Created far view renderer for {}", dimension.identifier());
@@ -339,6 +343,24 @@ public class ClientWorldLoader {
     private static void disposeFarViewRenderers() {
         for (ResourceKey<Level> dim : new ArrayList<>(FAR_VIEW_RENDERER_MAP.keySet())) {
             disposeFarViewRenderer(dim);
+        }
+    }
+    
+    /**
+     * Some mods (e.g. Sodium) bind a level extractor to the renderer of {@code Minecraft.levelRenderer}
+     * when its level is set. Make the given renderer the current one meanwhile.
+     */
+    private static void withRendererBound(LevelRenderer renderer, LevelExtractor extractor, Runnable runnable) {
+        LevelRenderer oldRenderer = CLIENT.levelRenderer;
+        LevelExtractor oldExtractor = CLIENT.levelExtractor;
+        ((IEMinecraftClient) CLIENT).ip_setWorldRenderer(renderer);
+        ((IEMinecraftClient) CLIENT).ip_setLevelExtractor(extractor);
+        try {
+            runnable.run();
+        }
+        finally {
+            ((IEMinecraftClient) CLIENT).ip_setWorldRenderer(oldRenderer);
+            ((IEMinecraftClient) CLIENT).ip_setLevelExtractor(oldExtractor);
         }
     }
     
@@ -530,8 +552,11 @@ public class ClientWorldLoader {
             WORLD_RENDERER_MAP.put(dimension, worldRenderer);
             LEVEL_EXTRACTOR_MAP.put(dimension, levelExtractor);
 
-            levelExtractor.onResourceManagerReload(CLIENT.getResourceManager());
-            levelExtractor.setLevel(newWorld);
+            ClientLevel newWorld_ = newWorld;
+            withRendererBound(worldRenderer, levelExtractor, () -> {
+                levelExtractor.onResourceManagerReload(CLIENT.getResourceManager());
+                levelExtractor.setLevel(newWorld_);
+            });
             
             LOGGER.info("Client World Created {}", dimension.identifier());
         }
