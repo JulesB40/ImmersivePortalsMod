@@ -42,6 +42,7 @@ public class VisibleSectionDiscovery {
         Frustum frustum,
         int renderDistance,
         @Nullable Portal portal,
+        @Nullable Vec3 extraStart,
         ObjectArrayList<RenderSection> result
     ) {
         result.clear();
@@ -62,6 +63,9 @@ public class VisibleSectionDiscovery {
         int maxSectionY = world.getMaxSectionY();
 
         // starting points
+        if (extraStart != null) {
+            addStart(SectionPos.of(extraStart), ieViewArea, result);
+        }
         if (portal != null) {
             Vec3 destPos = portal.getDestPos();
             addStart(SectionPos.of(destPos), ieViewArea, result);

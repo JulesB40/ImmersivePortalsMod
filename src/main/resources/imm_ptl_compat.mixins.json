@@ -8,6 +8,8 @@
     "defaultRequire": 1
   },
   "client": [
+    "sodium.MixinSodiumOcclusionCuller_IP",
+    "sodium.MixinSodiumViewport_IP",
     "sodium.MixinSodiumWorldRenderer_IP"
   ]
 }

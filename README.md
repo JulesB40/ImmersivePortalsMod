@@ -1,3 +1,28 @@
+# Immersive Portals: Minecraft 26.3 fork (alpha)
+
+Unofficial fork of [Immersive Portals](https://github.com/iPortalTeam/ImmersivePortalsMod), ported to Minecraft 26.3.
+
+- Portal views use the Blaze3D/renderpearl API, so they run on both the Vulkan and OpenGL backends.
+- Works with Sodium 0.9 (`mc26.3-0.9.3-beta.5`) or without it.
+- Entities keep moving smoothly when they cross a portal instead of snapping forward.
+- Each dimension seen through a portal uses its own lightmap, fog, and time of day.
+- Each view is culled to the part of the screen its portal covers.
+
+Requires Java 25, Fabric Loader 0.20+, and Fabric API 0.166+.
+
+**Not working or not verified yet:** Iris is declared incompatible. Alternate dimensions and GUI portals are parked in `misc/`. Rotating-portal camera animation is not applied to the main view. Dedicated servers, real multiplayer, and nested portals have not been tested. Several far portals into one dimension share one renderer.
+
+Automated in-game tests:
+
+```
+./gradlew runAutoTest -Pautotest=basic      # or crossing, lighting, occluded
+./gradlew runAutoTest -Penable_sodium=false # without Sodium
+```
+
+Results and screenshots are written to `run/imm_ptl_autotest/`. The graphics backend comes from `preferredGraphicsBackend` in `run/options.txt`.
+
+---
+
 Update: this repo is not being maintained now. Forks are welcomed.
 
 # Immersive Portals Mod

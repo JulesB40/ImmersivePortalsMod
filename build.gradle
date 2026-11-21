@@ -30,6 +30,10 @@ loom {
             inherit client
             name "Auto Test"
             vmArg "-Dimm_ptl.autotest=${project.findProperty('autotest') ?: 'basic'}"
+            if (project.hasProperty('jfr')) {
+                // profiling: ./gradlew runAutoTest -Pjfr=<file.jfr>
+                vmArg "-XX:StartFlightRecording=filename=${project.findProperty('jfr')},settings=profile"
+            }
             runDir "run"
         }
     }

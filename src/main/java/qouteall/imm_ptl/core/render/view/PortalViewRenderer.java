@@ -32,6 +32,7 @@ import net.minecraft.util.profiling.Profiler;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -127,6 +128,17 @@ public final class PortalViewRenderer {
         public final Matrix4f projection = new Matrix4f();
         public Frustum frustum;
         public boolean flipped;
+        /**
+         * The part of the screen this view is visible in, in normalized device coordinates
+         * of the base projection. The culling frustum is cropped to it.
+         */
+        public float cropMinX = -1, cropMinY = -1, cropMaxX = 1, cropMaxY = 1;
+        /**
+         * A point just behind the portal's destination surface, inside the cropped frustum.
+         * The section search starts here, as the camera itself is usually behind the near plane
+         * (and may be inside solid blocks).
+         */
+        public @Nullable Vec3 cullStart;
         public float xRot;
         public float yRot;
         public int renderDistance;
@@ -169,6 +181,11 @@ public final class PortalViewRenderer {
             sharedRenderer = false;
             inPlayerWorld = false;
             flipped = false;
+            cropMinX = -1;
+            cropMinY = -1;
+            cropMaxX = 1;
+            cropMaxY = 1;
+            cullStart = null;
         }
     }
 
@@ -416,7 +433,17 @@ public final class PortalViewRenderer {
             return null;
         }
 
+        float[] crop = computeScreenCrop(parent, portal);
+        if (crop == null) {
+            // not visible through the parent view
+            return null;
+        }
+
         ViewContext child = allocContext();
+        child.cropMinX = crop[0];
+        child.cropMinY = crop[1];
+        child.cropMaxX = crop[2];
+        child.cropMaxY = crop[3];
         child.layer = parent.layer + 1;
         child.parent = parent;
         child.portal = portal;
@@ -447,13 +474,24 @@ public final class PortalViewRenderer {
             }
         }
 
+        // cull with a frustum that only covers the part of the screen where the portal is.
+        // (the crop is in the unflipped space. flipping does not change the culling result)
+        float cropW = child.cropMaxX - child.cropMinX;
+        float cropH = child.cropMaxY - child.cropMinY;
+        Matrix4f cullProjection = new Matrix4f()
+            .m00(2 / cropW).m11(2 / cropH)
+            .m30(-(child.cropMinX + child.cropMaxX) / cropW)
+            .m31(-(child.cropMinY + child.cropMaxY) / cropH)
+            .mul(projection);
+        child.cullStart = computeCullStart(child, innerClipping);
+
         if (child.flipped) {
             // flip X in clip space. See PortalSurfaceRenderer.
             projection = new Matrix4f().scaling(-1, 1, 1).mul(projection);
         }
         child.projection.set(projection);
 
-        Frustum frustum = new Frustum(child.viewRotation, child.projection);
+        Frustum frustum = new Frustum(child.viewRotation, cullProjection);
         frustum.prepare(child.cameraPos.x, child.cameraPos.y, child.cameraPos.z);
         child.frustum = frustum;
 
@@ -464,6 +502,92 @@ public final class PortalViewRenderer {
         child.xRot = (float) Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, -forward.y))));
 
         return child;
+    }
+
+    /**
+     * @return the screen rectangle (minX, minY, maxX, maxY) in which the portal can be seen through the parent view,
+     * in normalized device coordinates of the base projection. Null if it's empty.
+     */
+    private static float @Nullable [] computeScreenCrop(ViewContext parent, Portal portal) {
+        // portal views may lag behind by a frame in asynchronous culling, keep a margin
+        final float margin = 0.08f;
+
+        AABB box = portal.getBoundingBox();
+        Matrix4f viewProjection = new Matrix4f(parent.baseProjection).mul(parent.viewRotation);
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY;
+        boolean crossesCameraPlane = false;
+        Vector4f clip = new Vector4f();
+        for (int i = 0; i < 8; i++) {
+            double x = ((i & 1) == 0 ? box.minX : box.maxX) - parent.cameraPos.x;
+            double y = ((i & 2) == 0 ? box.minY : box.maxY) - parent.cameraPos.y;
+            double z = ((i & 4) == 0 ? box.minZ : box.maxZ) - parent.cameraPos.z;
+            viewProjection.transform((float) x, (float) y, (float) z, 1, clip);
+            if (clip.w <= 0.05f) {
+                crossesCameraPlane = true;
+                break;
+            }
+            minX = Math.min(minX, clip.x / clip.w);
+            minY = Math.min(minY, clip.y / clip.w);
+            maxX = Math.max(maxX, clip.x / clip.w);
+            maxY = Math.max(maxY, clip.y / clip.w);
+        }
+        if (crossesCameraPlane) {
+            // the camera is very close to the portal. it may cover the whole parent view
+            return new float[]{parent.cropMinX, parent.cropMinY, parent.cropMaxX, parent.cropMaxY};
+        }
+        float rMinX = Math.max(parent.cropMinX, minX - margin);
+        float rMinY = Math.max(parent.cropMinY, minY - margin);
+        float rMaxX = Math.min(parent.cropMaxX, maxX + margin);
+        float rMaxY = Math.min(parent.cropMaxY, maxY + margin);
+        if (rMinX >= rMaxX || rMinY >= rMaxY) {
+            return null;
+        }
+        return new float[]{rMinX, rMinY, rMaxX, rMaxY};
+    }
+
+    /**
+     * The point where the center of the cropped screen area hits the portal's destination surface.
+     */
+    private static @Nullable Vec3 computeCullStart(ViewContext view, @Nullable Plane innerClipping) {
+        if (innerClipping == null) {
+            return null;
+        }
+        Matrix4f inverse = new Matrix4f(view.baseProjection).mul(view.viewRotation).invert();
+        Vector4f point = new Vector4f(
+            (view.cropMinX + view.cropMaxX) / 2, (view.cropMinY + view.cropMaxY) / 2, 0.5f, 1
+        );
+        inverse.transform(point);
+        if (Math.abs(point.w) < 1e-6f) {
+            return null;
+        }
+        Vec3 direction = new Vec3(point.x / point.w, point.y / point.w, point.z / point.w);
+        if (point.w < 0) {
+            direction = direction.scale(-1);
+        }
+        Vec3 normal = innerClipping.normal().normalize();
+        double denominator = direction.dot(normal);
+        if (Math.abs(denominator) < 1e-6) {
+            return null;
+        }
+        double t = innerClipping.pos().subtract(view.cameraPos).dot(normal) / denominator;
+        if (t <= 0) {
+            return null;
+        }
+        return view.cameraPos.add(direction.scale(t)).add(normal.scale(0.5));
+    }
+
+    /**
+     * Used by the Sodium integration: where the terrain graph search of the view being extracted starts.
+     */
+    public static @Nullable SectionPos getCullOriginOfExtractingView() {
+        if (!client.isSameThread() || currentView == null || !currentView.isExtracting) {
+            return null;
+        }
+        if (currentView.cullStart != null) {
+            return SectionPos.of(currentView.cullStart);
+        }
+        return currentView.portal != null ? SectionPos.of(currentView.portal.getDestPos()) : null;
     }
 
     /**

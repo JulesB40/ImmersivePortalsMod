@@ -259,6 +259,9 @@ public class AutoTest {
         else if (scenario.equals("lighting")) {
             buildLightingScenario();
         }
+        else if (scenario.equals("occluded")) {
+            buildOccludedScenario();
+        }
         else {
             buildBasicScenario();
         }
@@ -467,6 +470,10 @@ public class AutoTest {
         cmd("tp @s 0.5 100 -3.5 0 0");
         look(0, 10);
 
+        waitTicks(40);
+        // control: the same movement with no portal involved
+        driveEntityThroughPortal("control_no_portal", net.minecraft.world.phys.Vec3.ZERO);
+
         // same dimension portal
         spawnPortal(
             "far", false, new net.minecraft.world.phys.Vec3(0.5, 102, 5.5), W, H, 3, 4,
@@ -545,6 +552,35 @@ public class AutoTest {
         screenshot("light_6_overworld_noon_again");
     }
     
+    /**
+     * The camera of the portal view is far behind the destination, inside solid blocks.
+     * The view must still show the room behind the portal.
+     */
+    private static void buildOccludedScenario() {
+        var W = new net.minecraft.world.phys.Vec3(-1, 0, 0);
+        var H = new net.minecraft.world.phys.Vec3(0, 1, 0);
+        cmd("forceload add -16 -40 16 16");
+        cmd("execute in minecraft:the_nether run forceload add -32 -48 32 32");
+        waitTicks(60);
+        cmd("fill -4 99 -32 4 99 -8 minecraft:stone");
+        cmd("execute in minecraft:the_nether run fill -16 60 -32 16 90 -1 minecraft:netherrack");
+        waitTicks(20);
+        spawnPortal(
+            "nether", false, new net.minecraft.world.phys.Vec3(0.5, 102, 5.5), W, H, 3, 4,
+            net.minecraft.world.level.Level.NETHER, new net.minecraft.world.phys.Vec3(0.5, 71, 0.5)
+        );
+        cmd("tp @s 0.5 100 -24.5 0 0");
+        look(0, 0);
+        waitTicks(240);
+        screenshot("occluded_far_camera");
+        report("occluded far camera");
+        // look around: the portal goes to the side of the screen
+        look(14, 0);
+        waitTicks(40);
+        screenshot("occluded_side");
+        report("occluded side");
+    }
+
     private static void buildBasicScenario() {
         var W = new net.minecraft.world.phys.Vec3(-1, 0, 0);
         var H = new net.minecraft.world.phys.Vec3(0, 1, 0);

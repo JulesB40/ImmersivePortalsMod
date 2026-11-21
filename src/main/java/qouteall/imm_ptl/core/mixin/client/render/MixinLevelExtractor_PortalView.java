@@ -28,8 +28,6 @@ import qouteall.imm_ptl.core.render.view.PortalViewRenderer;
 
 @Mixin(LevelExtractor.class)
 public class MixinLevelExtractor_PortalView {
-    private static long ip_lastProbe = 0;
-
     @Shadow
     @Final
     private LevelRenderer levelRenderer;
@@ -68,7 +66,7 @@ public class MixinLevelExtractor_PortalView {
             if (view != null && level != null) {
                 VisibleSectionDiscovery.discoverVisibleSections(
                     level, levelRenderer, view.cameraPos, view.frustum, view.renderDistance,
-                    view.portal,
+                    view.portal, view.cullStart,
                     ((IELevelRenderer) levelRenderer).ip_getVisibleSections()
                 );
                 ((IELevelRenderer) levelRenderer).ip_getNearbyVisibleSections().clear();
@@ -80,7 +78,7 @@ public class MixinLevelExtractor_PortalView {
             VisibleSectionDiscovery.discoverVisibleSections(
                 level, levelRenderer, camera.position(), frustum,
                 net.minecraft.client.Minecraft.getInstance().options.getEffectiveRenderDistance(),
-                null,
+                null, null,
                 ((IELevelRenderer) levelRenderer).ip_getVisibleSections()
             );
             ((IELevelRenderer) levelRenderer).ip_getNearbyVisibleSections().clear();
@@ -167,27 +165,6 @@ public class MixinLevelExtractor_PortalView {
     ) {
         if (level == null) {
             return;
-        }
-        if (PortalViewRenderer.isExtractingPortalView() && System.getProperty("imm_ptl.autotest") != null
-            && System.currentTimeMillis() - ip_lastProbe > 1000) {
-            ip_lastProbe = System.currentTimeMillis();
-            net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
-            if (player != null && player.level() == level) {
-                var cam = camera.position();
-                boolean dispatcherOk = levelRenderer.entityRenderDispatcher().shouldRender(
-                    player, frustum, cam.x, cam.y, cam.z, 1.0f);
-                boolean entityShould = player.shouldRender(cam.x, cam.y, cam.z);
-                boolean sectionOk = levelRenderer.isSectionCompiledAndVisible(player.blockPosition(), 0);
-                boolean inList = false;
-                for (var e : level.entitiesForRendering()) {
-                    if (e == player) { inList = true; break; }
-                }
-                org.slf4j.LoggerFactory.getLogger("ImmPtlProbe").info(
-                    "player probe: dispatcher={} entityShould={} sectionOk={} inList={} camEntityIsPlayer={} detached={} frustumVisible={}",
-                    dispatcherOk, entityShould, sectionOk, inList, camera.entity() == player, camera.isDetached(),
-                    frustum.isVisible(player.getBoundingBox())
-                );
-            }
         }
         qouteall.imm_ptl.core.render.CrossPortalEntityRenderer.addProjectedEntities(
             level, levelRenderer.entityRenderDispatcher(), camera.position(),
