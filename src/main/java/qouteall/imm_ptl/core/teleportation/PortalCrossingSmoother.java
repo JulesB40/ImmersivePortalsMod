@@ -57,6 +57,8 @@ public final class PortalCrossingSmoother {
         new Object2ObjectOpenHashMap<>();
 
     private static long clientTime = 0;
+    private static final boolean DEBUG = System.getProperty("imm_ptl.autotest") != null;
+    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
 
     public static void tick() {
         clientTime++;
@@ -79,10 +81,77 @@ public final class PortalCrossingSmoother {
             return;
         }
         Portal portal = findCrossedPortal(entity.level(), entity, reference, newServerPos);
+        if (DEBUG) {
+            LOGGER.info("[Smoother] jump {} {} -> {} portal={}", entity, reference, newServerPos, portal);
+        }
         if (portal == null) {
             return;
         }
         transformEntityState(entity, portal, entity.level(), entity.level());
+    }
+
+    /**
+     * Called when the server tells that an entity got teleported through a portal
+     * (the server sends its exact new position right after teleporting it).
+     * Instead of snapping the entity to the new position (which makes it jump forward by the
+     * interpolation lag, as the rendered position is a few ticks behind the server position),
+     * keep interpolating from the rendered position, transformed through the portal.
+     *
+     * @return whether it's handled. If not, the caller snaps the entity to the position.
+     */
+    public static boolean onEntityTeleportedThroughPortal(Entity entity, Vec3 newPos) {
+        if (!IPGlobal.allowClientEntityPosInterpolation) {
+            return false;
+        }
+        if (entity.isLocalInstanceAuthoritative() || entity instanceof Portal) {
+            return false;
+        }
+
+        double tolerance = 4;
+        if (entity.position().distanceToSqr(newPos) < tolerance * tolerance) {
+            // already on this side of the portal:
+            // the other dimension case (handled in onEntityAdded),
+            // or the position sync packet came before and got handled in beforeServerPositionUpdate.
+            // just update the interpolation target
+            Vec3 target = getInterpolationTargetOrPos(entity);
+            if (target.distanceToSqr(newPos) > 1.0E-6) {
+                entity.moveOrInterpolateTo(newPos, entity.getYRot(), entity.getXRot());
+            }
+            return true;
+        }
+
+        Vec3 reference = getInterpolationTargetOrPos(entity);
+        Portal portal = findCrossedPortal(entity.level(), entity, reference, newPos);
+        if (portal == null) {
+            portal = findCrossedPortal(entity.level(), entity, entity.position(), newPos);
+        }
+        if (DEBUG) {
+            LOGGER.info("[Smoother] teleported {} {} -> {} portal={}", entity, reference, newPos, portal);
+        }
+        if (portal == null) {
+            return false;
+        }
+
+        float yRot = entity.getYRot();
+        float xRot = entity.getXRot();
+        PositionAndRotationTarget targetRot = getInterpolationTargetRotation(entity);
+        transformEntityState(entity, portal, entity.level(), entity.level());
+        // the target rotation also goes through the portal
+        float[] newTargetRot = transformRotation(
+            portal, targetRot != null ? targetRot.yRot : yRot, targetRot != null ? targetRot.xRot : xRot
+        );
+        entity.moveOrInterpolateTo(newPos, newTargetRot[0], newTargetRot[1]);
+        return true;
+    }
+
+    private record PositionAndRotationTarget(float yRot, float xRot) {}
+
+    private static @Nullable PositionAndRotationTarget getInterpolationTargetRotation(Entity entity) {
+        var target = entity.getInterpolation().target();
+        if (target == null) {
+            return null;
+        }
+        return new PositionAndRotationTarget(target.yRot(), target.xRot());
     }
 
     private static Vec3 getInterpolationTargetOrPos(Entity entity) {
@@ -207,6 +276,9 @@ public final class PortalCrossingSmoother {
                 .filter(p -> p.getDestDim() != world.dimension() && p.isTeleportable())
                 .findFirst().orElse(null);
         }
+        if (DEBUG) {
+            LOGGER.info("[Smoother] removed {} from {} portal={}", entity, world.dimension().identifier(), portal);
+        }
         if (portal == null || portal.getDestDim() == world.dimension()) {
             return;
         }
@@ -244,6 +316,9 @@ public final class PortalCrossingSmoother {
             return;
         }
         RemovedEntityState state = recentlyRemoved.remove(entity.getUUID());
+        if (DEBUG) {
+            LOGGER.info("[Smoother] added {} in {} state={}", entity, world.dimension().identifier(), state);
+        }
         if (state == null || state.portal == null) {
             return;
         }

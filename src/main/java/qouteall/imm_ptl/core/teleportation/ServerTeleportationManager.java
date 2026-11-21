@@ -561,7 +561,13 @@ public class ServerTeleportationManager {
         
         McHelper.setEyePos(entity, newEyePos, newEyePos);
         McHelper.updateBoundingBox(entity);
-        
+
+        // the collision with the portal it came from must not apply on the other side
+        // (otherwise the cross-portal collision is computed from the wrong place and the entity gets stuck)
+        PortalCollisionHandler.updateCollidingPortalAfterTeleportation(
+            entity, newEyePos, newEyePos, 0
+        );
+
         // living entities do position interpolation
         // it may interpolate into unloaded chunks and stuck
         // avoid position interpolation

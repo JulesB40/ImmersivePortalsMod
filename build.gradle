@@ -25,11 +25,11 @@ loom {
     accessWidenerPath = file("src/main/resources/imm_ptl.accesswidener")
     
     runs {
-        // automated in-game test: ./gradlew runAutoTest
+        // automated in-game test: ./gradlew runAutoTest [-Pautotest=basic|crossing] [-Penable_sodium=false]
         autoTest {
             inherit client
             name "Auto Test"
-            vmArg "-Dimm_ptl.autotest=basic"
+            vmArg "-Dimm_ptl.autotest=${project.findProperty('autotest') ?: 'basic'}"
             runDir "run"
         }
     }

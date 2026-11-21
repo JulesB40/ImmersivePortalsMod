@@ -704,6 +704,12 @@ public class ClientTeleportationManager {
                 return;
             }
             
+            // the entity went through a portal on the server.
+            // continue the movement smoothly from where it's rendered (transformed through the portal)
+            if (PortalCrossingSmoother.onEntityTeleportedThroughPortal(entity, pos)) {
+                return;
+            }
+
             // both of them are important for Minecart
             entity.setPos(pos);
             // cancel the ongoing position interpolation
