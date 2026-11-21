@@ -105,6 +105,21 @@ public class AutoTest {
     private static void takeScreenshotNow(Minecraft mc, String name) {
         Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
             try {
+                // average brightness of the screen center (where the test portals are)
+                int w = image.getWidth();
+                int h = image.getHeight();
+                double sum = 0;
+                int count = 0;
+                for (int y = (int) (h * 0.25); y < (int) (h * 0.7); y += 2) {
+                    for (int x = (int) (w * 0.42); x < (int) (w * 0.58); x += 2) {
+                        int c = image.getPixel(x, y);
+                        sum += ((c & 0xFF) + ((c >> 8) & 0xFF) + ((c >> 16) & 0xFF)) / 3.0;
+                        count++;
+                    }
+                }
+                String line = "screenshot %s centerBrightness=%.1f".formatted(name, sum / count);
+                results.add(line);
+                LOGGER.info("[ImmPtl AutoTest] {}", line);
                 File file = outDir.resolve(name + ".png").toFile();
                 image.writeToFile(file);
                 LOGGER.info("[ImmPtl AutoTest] screenshot {}", file.getAbsolutePath());
@@ -240,6 +255,9 @@ public class AutoTest {
 
         if (scenario.equals("crossing")) {
             buildCrossingScenario();
+        }
+        else if (scenario.equals("lighting")) {
+            buildLightingScenario();
         }
         else {
             buildBasicScenario();
@@ -471,6 +489,62 @@ public class AutoTest {
         removePortals();
     }
 
+    private static void buildLightingScenario() {
+        var W = new net.minecraft.world.phys.Vec3(-1, 0, 0);
+        var H = new net.minecraft.world.phys.Vec3(0, 1, 0);
+        
+        // a closed dark room in the nether, at the destination
+        cmd("execute in minecraft:the_nether run fill -6 68 -8 6 77 12 minecraft:blackstone hollow");
+        waitTicks(20);
+        spawnPortal(
+            "nether", false, new net.minecraft.world.phys.Vec3(0.5, 102, 5.5), W, H, 3, 4,
+            net.minecraft.world.level.Level.NETHER, new net.minecraft.world.phys.Vec3(0.5, 71, 0.5)
+        );
+        cmd("tp @s 0.5 100 0.5 0 0");
+        look(0, 0);
+        waitTicks(160);
+        screenshot("light_1_dark_room");
+        
+        // a light source in the remote dimension: the lighting seen through the portal must update
+        cmd("execute in minecraft:the_nether run setblock 0 69 4 minecraft:sea_lantern");
+        waitTicks(60);
+        screenshot("light_2_lantern_placed");
+        
+        cmd("execute in minecraft:the_nether run setblock 0 69 4 minecraft:air");
+        waitTicks(60);
+        screenshot("light_3_lantern_removed");
+        removePortals();
+        waitTicks(20);
+        
+        // time of day of the remote dimension, seen from another dimension
+        cmd("execute in minecraft:the_nether run fill -6 68 -8 6 77 12 minecraft:air");
+        cmd("execute in minecraft:the_nether run fill -6 68 -8 6 68 12 minecraft:gold_block");
+        cmd("execute in minecraft:the_nether run tp @s 0.5 69 -3.5 0 0");
+        waitTicks(60);
+        steps.add((mc, t) -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var nether = server.getLevel(net.minecraft.world.level.Level.NETHER);
+                Portal portal = Portal.ENTITY_TYPE.create(nether, net.minecraft.world.entity.EntitySpawnReason.LOAD);
+                portal.setOriginPos(new net.minecraft.world.phys.Vec3(0.5, 71, 1.5));
+                portal.setOrientationAndSize(W, H, 3, 4);
+                portal.setDestinationDimension(net.minecraft.world.level.Level.OVERWORLD);
+                portal.setDestination(new net.minecraft.world.phys.Vec3(0.5, 102, 0.5));
+                qouteall.imm_ptl.core.McHelper.spawnServerEntity(portal);
+            });
+            return true;
+        });
+        look(0, 0);
+        waitTicks(120);
+        screenshot("light_4_overworld_noon_from_nether");
+        cmd("execute in minecraft:overworld run time set midnight");
+        waitTicks(60);
+        screenshot("light_5_overworld_midnight_from_nether");
+        cmd("execute in minecraft:overworld run time set noon");
+        waitTicks(60);
+        screenshot("light_6_overworld_noon_again");
+    }
+    
     private static void buildBasicScenario() {
         var W = new net.minecraft.world.phys.Vec3(-1, 0, 0);
         var H = new net.minecraft.world.phys.Vec3(0, 1, 0);
