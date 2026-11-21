@@ -25,7 +25,7 @@ loom {
     accessWidenerPath = file("src/main/resources/imm_ptl.accesswidener")
     
     runs {
-        // automated in-game test: ./gradlew runAutoTest [-Pautotest=basic|crossing] [-Penable_sodium=false]
+        // automated in-game test: ./gradlew runAutoTest [-Pautotest=basic|crossing|lighting|occluded|benchmark] [-Penable_sodium=false]
         autoTest {
             inherit client
             name "Auto Test"
@@ -33,6 +33,15 @@ loom {
             if (project.hasProperty('jfr')) {
                 // profiling: ./gradlew runAutoTest -Pjfr=<file.jfr>
                 vmArg "-XX:StartFlightRecording=filename=${project.findProperty('jfr')},settings=profile"
+            }
+            if (project.hasProperty('offscreen')) {
+                // benchmark without presenting frames to the display
+                vmArg "-Dimm_ptl.autotest.offscreen=true"
+            }
+            if (project.hasProperty('res')) {
+                // window size: -Pres=1920x1080
+                def size = project.findProperty('res').toString().split('x')
+                programArgs "--width", size[0], "--height", size[1]
             }
             runDir "run"
         }

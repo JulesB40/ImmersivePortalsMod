@@ -216,7 +216,7 @@ public class AutoTest {
             // measure the real frame rate: no AFK limit, no vsync, no frame limit
             mc.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
             mc.options.enableVsync().set(false);
-            mc.options.framerateLimit().set(260);
+            mc.options.framerateLimit().set(260); // unlimited
             return true;
         });
         cmd("time set noon");
@@ -261,6 +261,9 @@ public class AutoTest {
         }
         else if (scenario.equals("occluded")) {
             buildOccludedScenario();
+        }
+        else if (scenario.equals("benchmark")) {
+            buildBenchmarkScenario();
         }
         else {
             buildBasicScenario();
@@ -579,6 +582,152 @@ public class AutoTest {
         waitTicks(40);
         screenshot("occluded_side");
         report("occluded side");
+    }
+
+    // ---- frame rate benchmark ----
+
+    private static final int BENCH_MEASURE_TICKS = 20 * 10;
+    private static final long[] benchFrameNanos = new long[400_000];
+    private static int benchFrameCount = 0;
+    private static long benchLastFrameTime = 0;
+    private static boolean benchRecording = false;
+    private static boolean benchRecorderRegistered = false;
+    private static final List<String> benchRows = new ArrayList<>();
+
+    private static void recordBenchFrame() {
+        if (!benchRecording) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (benchLastFrameTime != 0 && benchFrameCount < benchFrameNanos.length) {
+            benchFrameNanos[benchFrameCount++] = now - benchLastFrameTime;
+        }
+        benchLastFrameTime = now;
+    }
+
+    /**
+     * Measures 10 seconds with a static camera.
+     * The 1% low is the average frame rate of the slowest 1% of the frames.
+     */
+    private static void benchMeasure(String label) {
+        steps.add((mc, t) -> {
+            if (!benchRecorderRegistered) {
+                benchRecorderRegistered = true;
+                qouteall.imm_ptl.core.IPGlobal.PRE_GAME_RENDER_EVENT.register(AutoTest::recordBenchFrame);
+            }
+            benchFrameCount = 0;
+            benchLastFrameTime = 0;
+            qouteall.imm_ptl.core.render.view.PortalViewRenderer.takeAveragePortalMillis();
+            benchRecording = true;
+            return true;
+        });
+        waitTicks(BENCH_MEASURE_TICKS);
+        steps.add((mc, t) -> {
+            benchRecording = false;
+            double portalCpuMs = qouteall.imm_ptl.core.render.view.PortalViewRenderer.takeAveragePortalMillis();
+            int n = benchFrameCount;
+            long[] frames = java.util.Arrays.copyOf(benchFrameNanos, n);
+            java.util.Arrays.sort(frames);
+            long total = 0;
+            for (long f : frames) {
+                total += f;
+            }
+            int slowCount = Math.max(1, n / 100);
+            long slowTotal = 0;
+            for (int i = n - slowCount; i < n; i++) {
+                slowTotal += frames[i];
+            }
+            double avgFps = n * 1e9 / Math.max(1, total);
+            double lowFps = slowCount * 1e9 / Math.max(1, slowTotal);
+            String row = String.format(
+                java.util.Locale.ROOT, "%s,%.1f,%.1f,%d,%.3f,%d,%d",
+                label, avgFps, lowFps, n, portalCpuMs,
+                mc.getWindow().getWidth(), mc.getWindow().getHeight()
+            );
+            benchRows.add(row);
+            LOGGER.info("[ImmPtl AutoTest] benchmark {}", row);
+            return true;
+        });
+    }
+
+    private static void benchStand(double z, float yaw) {
+        cmd(String.format(java.util.Locale.ROOT, "tp @s 0.5 100 %.2f %.1f 0", z, yaw));
+        look(yaw, 0);
+    }
+
+    private static void buildBenchmarkScenario() {
+        var W = new net.minecraft.world.phys.Vec3(-1, 0, 0);
+        var H = new net.minecraft.world.phys.Vec3(0, 1, 0);
+        var portalPos = new net.minecraft.world.phys.Vec3(0.5, 102, 5.5);
+
+        cmd("difficulty peaceful");
+        benchStand(0.5, 0);
+        // let the JVM warm up and the terrain finish compiling before the first measurement
+        waitTicks(600);
+        screenshot("bench_no_portal");
+        benchMeasure("no_portal");
+
+        spawnPortal(
+            "nether", false, portalPos, W, H, 3, 4,
+            net.minecraft.world.level.Level.NETHER, new net.minecraft.world.phys.Vec3(0.5, 71, 0.5)
+        );
+        waitTicks(240);
+        look(0, 0);
+        waitTicks(10);
+        screenshot("bench_nether");
+        benchMeasure("nether_portal");
+
+        benchStand(4.2, 0);
+        waitTicks(60);
+        screenshot("bench_nether_close");
+        benchMeasure("nether_portal_filling_screen");
+
+        cmd("tp @s 4.5 100 1.5 30 0");
+        look(30, 0);
+        waitTicks(40);
+        screenshot("bench_nether_angle");
+        removePortals();
+        waitTicks(20);
+
+        spawnPortal(
+            "far", false, portalPos, W, H, 3, 4,
+            net.minecraft.world.level.Level.OVERWORLD, new net.minecraft.world.phys.Vec3(600.5, 132, 600.5)
+        );
+        benchStand(0.5, 0);
+        waitTicks(300);
+        screenshot("bench_far");
+        benchMeasure("far_same_dimension_portal");
+        removePortals();
+        waitTicks(20);
+
+        spawnPortal(
+            "mirror", true, portalPos, W, H, 3, 4,
+            net.minecraft.world.level.Level.OVERWORLD, null
+        );
+        benchStand(0.5, 0);
+        waitTicks(140);
+        screenshot("bench_mirror");
+        benchMeasure("mirror");
+        removePortals();
+        waitTicks(20);
+        
+        // the baseline again, to detect drift during the run (heat, background work)
+        benchStand(0.5, 0);
+        waitTicks(100);
+        benchMeasure("no_portal_end");
+
+        steps.add((mc, t) -> {
+            List<String> lines = new ArrayList<>();
+            lines.add("case,avg_fps,low_1pct_fps,frames,portal_cpu_ms,width,height");
+            lines.addAll(benchRows);
+            try {
+                Files.write(outDir.resolve("benchmark.csv"), lines);
+            }
+            catch (IOException e) {
+                LOGGER.error("", e);
+            }
+            return true;
+        });
     }
 
     private static void buildBasicScenario() {
