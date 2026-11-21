@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.gen.Invoker;
 
 @Mixin(LevelExtractor.class)
 public interface IELevelExtractor {
@@ -19,4 +20,7 @@ public interface IELevelExtractor {
     
     @Accessor("level")
     @Nullable ClientLevel ip_getLevel();
+    
+    @Invoker("setSectionDirty")
+    void ip_setSectionDirty(int sectionX, int sectionY, int sectionZ, boolean playerChanged);
 }

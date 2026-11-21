@@ -46,7 +46,8 @@ public class MixinLevelRenderer_PortalView {
         Operation<Void> original
     ) {
         if (PortalViewRenderer.isRenderingPortalView()) {
-            if (!PortalViewRenderer.isUsingSharedRenderer()) {
+            // the chunk tracking sets of the player's world are consumed by the player's renderer
+            if (!PortalViewRenderer.isViewingPlayerWorld()) {
                 graph.updateLoadedChunks(chunkLoading.addedLoadedChunks, chunkLoading.removedLoadedChunks);
                 graph.updateEmptySections(chunkLoading.addedEmptySections, chunkLoading.removedEmptySections);
             }
@@ -55,6 +56,25 @@ public class MixinLevelRenderer_PortalView {
         original.call(graph, camera, fov, chunkLoading);
     }
 
+    /**
+     * The shared renderer's translucent geometry is sorted for the player's camera.
+     * Re-sorting it for a portal view camera (and back for the player camera in the next frame)
+     * would re-sort thousands of sections every frame.
+     */
+    @WrapOperation(
+        method = "compileSections",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/LevelRenderer;scheduleTranslucentSectionResort(Lnet/minecraft/world/phys/Vec3;)V"
+        )
+    )
+    private void wrapTranslucentResort(LevelRenderer renderer, net.minecraft.world.phys.Vec3 cameraPos, Operation<Void> original) {
+        if (PortalViewRenderer.isRenderingPortalView() && PortalViewRenderer.isUsingSharedRenderer()) {
+            return;
+        }
+        original.call(renderer, cameraPos);
+    }
+    
     /**
      * Global portals are not entities in the world entity list, submit their surfaces here.
      */

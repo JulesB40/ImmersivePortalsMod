@@ -40,6 +40,10 @@ public class MixinGameRenderer_Frame {
         if (minecraft.level == null || minecraft.player == null) {
             return;
         }
+        if (minecraft.player.level() != minecraft.level) {
+            // in the middle of a vanilla respawn/dimension change (the loading screen renders a frame)
+            return;
+        }
 
         Profiler.get().push("ip_pre_render");
         // Note do not use delta tick. use partial tick.

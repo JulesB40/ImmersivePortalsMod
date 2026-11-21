@@ -207,9 +207,10 @@ public class ImmPtlChunkTickets {
             }
             
             if (!resultNow.isSuccess()) {
-                LOGGER.error(
-                    "Chunk loading failure {} {} {}",
-                    world, ChunkPos.unpack(chunkPos)
+                // this happens when the ticket gets removed before the chunk reaches entity ticking level
+                LOGGER.debug(
+                    "Chunk did not reach entity ticking {} {} {}",
+                    world, ChunkPos.unpack(chunkPos), resultNow.getError()
                 );
             }
             

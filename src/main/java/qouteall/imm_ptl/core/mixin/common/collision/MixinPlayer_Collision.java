@@ -17,7 +17,7 @@ public abstract class MixinPlayer_Collision {
      * @reason mixin does not allow cancel in redirect
      */
     @Overwrite
-    public boolean canPlayerFitWithinBlocksAndEntitiesWhen(Pose pose) {
+    protected boolean canPlayerFitWithinBlocksAndEntitiesWhen(Pose pose) {
         LivingEntity this_ = (LivingEntity) (Object) this;
         
         AABB box = this_.getDimensions(pose).makeBoundingBox(this_.position());

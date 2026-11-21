@@ -111,7 +111,9 @@
     "client.render.MixinEntityRenderDispatcher_CrossPortal",
     "client.render.MixinGameRenderer_Frame",
     "client.particle.MixinParticleGroup",
-    "client.sync.MixinClientPacketListener_Smooth"
+    "client.sync.MixinClientPacketListener_Smooth",
+    "client.render.MixinCamera_IP",
+    "client.render.MixinSkyRenderer_PortalView"
   ],
   "injectors": {
     "defaultRequire": 1

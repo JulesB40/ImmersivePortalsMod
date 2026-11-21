@@ -92,6 +92,7 @@ public final class PortalViewRenderer {
     private static @Nullable ViewContext rootView = null;
 
     private static long frameIndex = 0;
+    private static @Nullable Entity rootCameraEntity;
     
     /**
      * After the camera jumps (teleportation), the vanilla occlusion graph (built asynchronously)
@@ -133,6 +134,11 @@ public final class PortalViewRenderer {
          * If so, the shared camera-centered storages must not be repositioned.
          */
         public boolean sharedRenderer;
+        /**
+         * Whether the view's world is the player's world (with the shared renderer or the far view renderer).
+         * The chunk update tracking of that world belongs to the player's renderer.
+         */
+        public boolean inPlayerWorld;
         public @Nullable LevelRenderer renderer;
         public @Nullable LevelExtractor extractor;
         public final Reference2ObjectOpenHashMap<Portal, PortalViewTargets.Slot> renderedChildViews =
@@ -158,6 +164,7 @@ public final class PortalViewRenderer {
             isExtracting = false;
             isRendering = false;
             sharedRenderer = false;
+            inPlayerWorld = false;
             flipped = false;
         }
     }
@@ -195,6 +202,13 @@ public final class PortalViewRenderer {
      */
     public static boolean isUsingSharedRenderer() {
         return currentView != null && currentView.sharedRenderer;
+    }
+    
+    /**
+     * Whether the current portal view is of the player's world (rendered by the shared or the far view renderer).
+     */
+    public static boolean isViewingPlayerWorld() {
+        return currentView != null && currentView.inPlayerWorld;
     }
 
     public static @Nullable RenderTarget getMainRenderTargetOverride() {
@@ -255,12 +269,18 @@ public final class PortalViewRenderer {
         }
 
         ClientLevel mainWorld = client.level;
-        if (mainWorld == null || client.player == null) {
+        if (mainWorld == null || client.player == null || client.player.level() != mainWorld) {
+            return;
+        }
+        if (!ClientWorldLoader.getIsInitialized()) {
             return;
         }
 
         GameRenderer gameRenderer = client.gameRenderer;
         CameraRenderState mainCamera = gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
+        // note: during portal view processing, getCameraEntity() returns the portal camera's entity
+        // (it reads the "main camera", which is overridden). Capture the real one before that.
+        rootCameraEntity = client.getCameraEntity();
 
         ViewContext root = allocContext();
         root.layer = 0;
@@ -284,6 +304,7 @@ public final class PortalViewRenderer {
         GpuBufferSlice savedFog = RenderSystem.getShaderFog();
         GpuBuffer savedGlobals = RenderSystem.getGlobalSettingsUniform();
 
+        long portalStart = System.nanoTime();
         try {
             renderChildViews(root);
         }
@@ -292,6 +313,8 @@ public final class PortalViewRenderer {
             currentView = null;
         }
         finally {
+            statPortalNanos += System.nanoTime() - portalStart;
+            statFrames++;
             if (savedProjection != null) {
                 RenderSystem.setProjectionMatrix(savedProjection, savedProjectionType);
             }
@@ -472,11 +495,22 @@ public final class PortalViewRenderer {
         ResourceKey<Level> playerDim = RenderStates.originalPlayerDimension != null ?
             RenderStates.originalPlayerDimension : client.level.dimension();
 
-        LevelRenderer renderer = ClientWorldLoader.getWorldRenderer(dim);
-        LevelExtractor extractor = ClientWorldLoader.getLevelExtractor(dim);
+        view.inPlayerWorld = (dim == playerDim);
+        LevelRenderer renderer;
+        LevelExtractor extractor;
+        if (view.inPlayerWorld && isFarFromPlayerView(view)) {
+            // the player's renderer only holds the sections around the player
+            renderer = ClientWorldLoader.getFarViewRenderer(dim);
+            extractor = ClientWorldLoader.getFarViewExtractor(dim);
+            view.sharedRenderer = false;
+        }
+        else {
+            renderer = ClientWorldLoader.getWorldRenderer(dim);
+            extractor = ClientWorldLoader.getLevelExtractor(dim);
+            view.sharedRenderer = view.inPlayerWorld;
+        }
         view.renderer = renderer;
         view.extractor = extractor;
-        view.sharedRenderer = (dim == playerDim);
 
         ViewLayerResources res = ViewLayerResources.get(view.layer);
         DimensionRenderHelper dimHelper = ClientWorldLoader.getDimensionRenderHelper(dim);
@@ -502,7 +536,7 @@ public final class PortalViewRenderer {
             float partialTicks = deltaTracker.getGameTimeDeltaPartialTick(false);
 
             view.camera.setup(
-                view.world, client.getCameraEntity(), view.cameraPos,
+                view.world, rootCameraEntity, view.cameraPos,
                 view.viewRotation, view.frustum, view.xRot, view.yRot
             );
 
@@ -511,9 +545,15 @@ public final class PortalViewRenderer {
             }
 
             profiler.push("extract");
+            long t0 = System.nanoTime();
             extractor.extract(deltaTracker, view.camera, partialTicks);
+            lastExtractNanos = System.nanoTime() - t0;
             fillCameraState(view, res, deltaTracker, partialTicks);
             postProcessExtractedState(view, res.levelRenderState);
+            if (DEBUG_STATS && System.currentTimeMillis() - lastStatsLogTime > 1000) {
+                lastStatsLogTime = System.currentTimeMillis();
+                logViewStats(view, res);
+            }
             profiler.pop();
             view.isExtracting = false;
 
@@ -530,7 +570,9 @@ public final class PortalViewRenderer {
 
             view.isRendering = true;
             profiler.push("render");
+            long t1 = System.nanoTime();
             renderExtractedView(view, res);
+            lastRenderNanos = System.nanoTime() - t1;
             profiler.pop();
             view.isRendering = false;
 
@@ -582,6 +624,60 @@ public final class PortalViewRenderer {
             camera, view.renderDistance, deltaTracker,
             client.gameRenderer.bossOverlayWorldDarkening(partialTicks), view.world
         );
+    }
+
+    /**
+     * The shared renderer's sections are centered on the player's camera, within the render distance.
+     * A view whose camera is far from it would only see a part of its terrain.
+     */
+    private static boolean isFarFromPlayerView(ViewContext view) {
+        if (rootView == null) {
+            return false;
+        }
+        int renderDistance = client.options.getEffectiveRenderDistance();
+        SectionPos main = SectionPos.of(rootView.cameraPos);
+        SectionPos viewPos = SectionPos.of(view.cameraPos);
+        int dist = Math.max(Math.abs(main.x() - viewPos.x()), Math.abs(main.z() - viewPos.z()));
+        return dist > Math.max(2, renderDistance / 3);
+    }
+    
+    private static final boolean DEBUG_STATS = System.getProperty("imm_ptl.autotest") != null;
+    private static long lastStatsLogTime = 0;
+    private static long statPortalNanos = 0;
+    private static long statFrames = 0;
+    
+    /**
+     * @return average CPU time of portal view processing per frame (ms) since the last call
+     */
+    public static double takeAveragePortalMillis() {
+        double r = statFrames == 0 ? 0 : statPortalNanos / 1e6 / statFrames;
+        statPortalNanos = 0;
+        statFrames = 0;
+        return r;
+    }
+    private static long lastExtractNanos = 0;
+    private static long lastRenderNanos = 0;
+
+    private static void logViewStats(ViewContext view, ViewLayerResources res) {
+        int compiled = 0;
+        for (SectionRenderDispatcher.RenderSection s : res.visibleSections) {
+            if (s.sectionMesh.get() != net.minecraft.client.renderer.chunk.CompiledSectionMesh.UNCOMPILED) {
+                compiled++;
+            }
+        }
+        LOGGER.info(
+            "[ImmPtl ViewStats] layer={} dim={} shared={} far={} entities={} cam={} visible={} compiled={} updates={} viewArea={} chunks={}",
+            view.layer, view.world.dimension().identifier(), view.sharedRenderer,
+            view.inPlayerWorld && !view.sharedRenderer, res.levelRenderState.entityRenderStates.size(), view.cameraPos,
+            res.visibleSections.size(), compiled, res.levelRenderState.sectionUpdateRenderStates.size(),
+            view.renderer != null && view.renderer.viewArea() != null,
+            view.world.getChunkSource().getLoadedChunksCount()
+        );
+        StringBuilder types = new StringBuilder();
+        for (var st : res.levelRenderState.entityRenderStates) {
+            types.append(st.getClass().getSimpleName()).append(' ');
+        }
+        LOGGER.info("[ImmPtl ViewStats] entity states: {} | last extract {}us render {}us", types, lastExtractNanos / 1000, lastRenderNanos / 1000);
     }
 
     private static void postProcessExtractedState(ViewContext view, LevelRenderState state) {

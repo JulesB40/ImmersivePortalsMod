@@ -48,6 +48,7 @@ import qouteall.q_misc_util.my_util.CountDownInt;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -195,6 +196,7 @@ public class ClientWorldLoader {
         for (ResourceKey<Level> dim : new ArrayList<>(WORLD_RENDERER_MAP.keySet())) {
             disposeWorldRenderer(WORLD_RENDERER_MAP.get(dim), LEVEL_EXTRACTOR_MAP.get(dim));
         }
+        disposeFarViewRenderers();
         
         for (ClientLevel clientWorld : CLIENT_WORLD_MAP.values()) {
             ((IEClientWorld) clientWorld).ip_resetWorldRendererRef();
@@ -237,6 +239,7 @@ public class ClientWorldLoader {
         disposeWorldRenderer(worldRenderer, LEVEL_EXTRACTOR_MAP.get(dimension));
         WORLD_RENDERER_MAP.remove(dimension);
         LEVEL_EXTRACTOR_MAP.remove(dimension);
+        disposeFarViewRenderer(dimension);
         
         Validate.isTrue(CLIENT.levelRenderer != worldRenderer);
         
@@ -289,6 +292,69 @@ public class ClientWorldLoader {
         return result;
     }
     
+    
+    // ---- far view renderers ----
+    // The renderer of the player's dimension uses camera-centered storages (the view area,
+    // the section update tracker), so it cannot render a view that's far away from the player.
+    // Such views (e.g. a portal to a far place in the same dimension) use another renderer of the same level.
+    
+    private static final Map<ResourceKey<Level>, LevelRenderer> FAR_VIEW_RENDERER_MAP = new HashMap<>();
+    private static final Map<ResourceKey<Level>, LevelExtractor> FAR_VIEW_EXTRACTOR_MAP = new HashMap<>();
+    
+    public static LevelRenderer getFarViewRenderer(ResourceKey<Level> dimension) {
+        LevelRenderer renderer = FAR_VIEW_RENDERER_MAP.get(dimension);
+        if (renderer != null) {
+            return renderer;
+        }
+        ClientLevel world = getWorld(dimension);
+        renderer = createLevelRenderer();
+        LevelExtractor extractor = new LevelExtractor(
+            CLIENT, CLIENT.gameRenderer.gameRenderState().levelRenderState, renderer
+        );
+        extractor.onResourceManagerReload(CLIENT.getResourceManager());
+        extractor.setLevel(world);
+        FAR_VIEW_RENDERER_MAP.put(dimension, renderer);
+        FAR_VIEW_EXTRACTOR_MAP.put(dimension, extractor);
+        LOGGER.info("Created far view renderer for {}", dimension.identifier());
+        return renderer;
+    }
+    
+    public static LevelExtractor getFarViewExtractor(ResourceKey<Level> dimension) {
+        getFarViewRenderer(dimension);
+        return FAR_VIEW_EXTRACTOR_MAP.get(dimension);
+    }
+    
+    public static @Nullable LevelExtractor getFarViewExtractorIfPresent(ResourceKey<Level> dimension) {
+        return FAR_VIEW_EXTRACTOR_MAP.get(dimension);
+    }
+    
+    private static void disposeFarViewRenderer(ResourceKey<Level> dimension) {
+        LevelRenderer renderer = FAR_VIEW_RENDERER_MAP.remove(dimension);
+        LevelExtractor extractor = FAR_VIEW_EXTRACTOR_MAP.remove(dimension);
+        if (renderer != null) {
+            disposeWorldRenderer(renderer, extractor);
+        }
+    }
+    
+    private static void disposeFarViewRenderers() {
+        for (ResourceKey<Level> dim : new ArrayList<>(FAR_VIEW_RENDERER_MAP.keySet())) {
+            disposeFarViewRenderer(dim);
+        }
+    }
+    
+    private static LevelRenderer createLevelRenderer() {
+        return new LevelRenderer(
+            CLIENT.getEntityRenderDispatcher(),
+            CLIENT.getBlockEntityRenderDispatcher(),
+            CLIENT.getModelManager(),
+            CLIENT.getTextureManager(),
+            CLIENT.getAtlasManager(),
+            CLIENT.getShaderManager(),
+            CLIENT.gameRenderer,
+            CLIENT.getWindow().getWidth(),
+            CLIENT.getWindow().getHeight()
+        );
+    }
     
     @NotNull
     public static LevelExtractor getLevelExtractor(ResourceKey<Level> dimension) {
@@ -402,17 +468,7 @@ public class ClientWorldLoader {
         
         int chunkLoadDistance = 3; // my own chunk manager doesn't need it
         
-        LevelRenderer worldRenderer = new LevelRenderer(
-            CLIENT.getEntityRenderDispatcher(),
-            CLIENT.getBlockEntityRenderDispatcher(),
-            CLIENT.getModelManager(),
-            CLIENT.getTextureManager(),
-            CLIENT.getAtlasManager(),
-            CLIENT.getShaderManager(),
-            CLIENT.gameRenderer,
-            CLIENT.getWindow().getWidth(),
-            CLIENT.getWindow().getHeight()
-        );
+        LevelRenderer worldRenderer = createLevelRenderer();
         LevelExtractor levelExtractor = new LevelExtractor(
             CLIENT, CLIENT.gameRenderer.gameRenderState().levelRenderState, worldRenderer
         );
@@ -541,6 +597,10 @@ public class ClientWorldLoader {
                     CLIENT.levelExtractor.allChanged();
                 }
             );
+        }
+        
+        for (LevelExtractor extractor : FAR_VIEW_EXTRACTOR_MAP.values()) {
+            extractor.allChanged();
         }
         
         isReloadingOtherWorldRenderers = false;

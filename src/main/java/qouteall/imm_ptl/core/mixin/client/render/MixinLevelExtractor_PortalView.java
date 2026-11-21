@@ -28,6 +28,8 @@ import qouteall.imm_ptl.core.render.view.PortalViewRenderer;
 
 @Mixin(LevelExtractor.class)
 public class MixinLevelExtractor_PortalView {
+    private static long ip_lastProbe = 0;
+
     @Shadow
     @Final
     private LevelRenderer levelRenderer;
@@ -114,12 +116,27 @@ public class MixinLevelExtractor_PortalView {
         )
     )
     private void wrapFlipUpdateTrackingSets(ClientChunkCache chunkCache, Operation<Void> original) {
-        if (PortalViewRenderer.isExtractingPortalView() && PortalViewRenderer.isUsingSharedRenderer()) {
+        if (PortalViewRenderer.isExtractingPortalView() && PortalViewRenderer.isViewingPlayerWorld()) {
             return;
         }
         original.call(chunkCache);
     }
 
+    /**
+     * The level only notifies its own extractor about block/light changes.
+     * Forward them to the far view extractor of the same level.
+     */
+    @Inject(method = "setSectionDirty(IIIZ)V", at = @At("HEAD"))
+    private void onSetSectionDirty(int sectionX, int sectionY, int sectionZ, boolean playerChanged, CallbackInfo ci) {
+        if (level == null) {
+            return;
+        }
+        LevelExtractor far = qouteall.imm_ptl.core.ClientWorldLoader.getFarViewExtractorIfPresent(level.dimension());
+        if (far != null && far != (Object) this) {
+            ((IELevelExtractor) far).ip_setSectionDirty(sectionX, sectionY, sectionZ, playerChanged);
+        }
+    }
+    
     /**
      * The particle engine only holds the particles of the player's dimension.
      */
@@ -134,7 +151,7 @@ public class MixinLevelExtractor_PortalView {
         ParticleEngine engine, ParticlesRenderState state, Frustum frustum, Camera camera, float partialTicks,
         Operation<Void> original
     ) {
-        if (PortalViewRenderer.isExtractingPortalView() && !PortalViewRenderer.isUsingSharedRenderer()) {
+        if (PortalViewRenderer.isExtractingPortalView() && !PortalViewRenderer.isViewingPlayerWorld()) {
             return;
         }
         original.call(engine, state, frustum, camera, partialTicks);
@@ -150,6 +167,27 @@ public class MixinLevelExtractor_PortalView {
     ) {
         if (level == null) {
             return;
+        }
+        if (PortalViewRenderer.isExtractingPortalView() && System.getProperty("imm_ptl.autotest") != null
+            && System.currentTimeMillis() - ip_lastProbe > 1000) {
+            ip_lastProbe = System.currentTimeMillis();
+            net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
+            if (player != null && player.level() == level) {
+                var cam = camera.position();
+                boolean dispatcherOk = levelRenderer.entityRenderDispatcher().shouldRender(
+                    player, frustum, cam.x, cam.y, cam.z, 1.0f);
+                boolean entityShould = player.shouldRender(cam.x, cam.y, cam.z);
+                boolean sectionOk = levelRenderer.isSectionCompiledAndVisible(player.blockPosition(), 0);
+                boolean inList = false;
+                for (var e : level.entitiesForRendering()) {
+                    if (e == player) { inList = true; break; }
+                }
+                org.slf4j.LoggerFactory.getLogger("ImmPtlProbe").info(
+                    "player probe: dispatcher={} entityShould={} sectionOk={} inList={} camEntityIsPlayer={} detached={} frustumVisible={}",
+                    dispatcherOk, entityShould, sectionOk, inList, camera.entity() == player, camera.isDetached(),
+                    frustum.isVisible(player.getBoundingBox())
+                );
+            }
         }
         qouteall.imm_ptl.core.render.CrossPortalEntityRenderer.addProjectedEntities(
             level, levelRenderer.entityRenderDispatcher(), camera.position(),
