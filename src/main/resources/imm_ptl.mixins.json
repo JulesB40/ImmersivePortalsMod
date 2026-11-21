@@ -23,7 +23,6 @@
     "common.chunk_sync.MixinServerGamePacketListenerImpl_ChunkSync",
     "common.collision.IEEntity_Collision",
     "common.collision.MixinAbstractArrow",
-    "common.collision.MixinAbstractMinecartEntity",
     "common.collision.MixinEntity",
     "common.collision.MixinPlayer_Collision",
     "common.collision.MixinProjectile",
@@ -33,12 +32,9 @@
     "common.container_gui.MixinContainer",
     "common.container_gui.MixinContainerOpenersCounter",
     "common.debug.IEChunkHolder_Debug",
-    "common.debug.MixinChunkTaskPriorityQueue",
     "common.debug.MixinClientboundSectionBlocksUpdatePacket_Debug",
-    "common.debug.MixinDistanceManager_Debug",
     "common.debug.MixinHashMapPalette",
     "common.debug.MixinLinearPalette",
-    "common.debug.MixinPlayerTicketTracker_Debug",
     "common.debug.MixinServerChunkCacheMainThreadExecutor",
     "common.debug.MixinServerLevel_Debug",
     "common.entity_sync.MixinChunkMap_E",
@@ -82,7 +78,6 @@
     "client.MixinAbstractClientPlayer",
     "client.MixinClientConnection",
     "client.MixinClientLevel",
-    "client.MixinDebugScreenOverlay",
     "client.MixinLivingEntity_C",
     "client.MixinMinecraft",
     "client.accessor.IEClientLevel_Accessor",
@@ -93,13 +88,11 @@
     "client.interaction.MixinItem_Interaction_Client",
     "client.interaction.MixinMinecraft_B",
     "client.interaction.MixinMultiPlayerGameMode",
-    "client.multiworld_awareness.MixinBiomeAmbientSoundPlayer",
     "client.particle.IEParticle",
     "client.particle.MixinParticleEngine",
     "client.sound.MixinClientLevel_Sound",
     "client.sync.IEBlockStatePredictionHandler",
     "client.sync.MixinBlockStatePredictionHandler",
-    "client.sync.MixinClientboundPlayerPositionPacket",
     "client.sync.MixinClientPacketListener",
     "client.sync.MixinMinecraft_RedirectedPacket",
     "client.sync.MixinServerBoundMovePlayerPacket",
@@ -117,10 +110,12 @@
     "client.render.MixinLevelExtractor_PortalView",
     "client.render.MixinEntityRenderDispatcher_CrossPortal",
     "client.render.MixinGameRenderer_Frame",
-    "client.particle.MixinParticleGroup"
+    "client.particle.MixinParticleGroup",
+    "client.sync.MixinClientPacketListener_Smooth"
   ],
   "injectors": {
     "defaultRequire": 1
   },
-  "x": []
+  "x": [],
+  "server": []
 }

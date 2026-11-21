@@ -23,6 +23,16 @@ repositories {
 
 loom {
     accessWidenerPath = file("src/main/resources/imm_ptl.accesswidener")
+    
+    runs {
+        // automated in-game test: ./gradlew runAutoTest
+        autoTest {
+            inherit client
+            name "Auto Test"
+            vmArg "-Dimm_ptl.autotest=basic"
+            runDir "run"
+        }
+    }
 }
 
 dependencies {

@@ -82,6 +82,7 @@ public class ClientTeleportationManager {
         IPGlobal.POST_CLIENT_TICK_EVENT.register(
             ClientTeleportationManager::tick
         );
+        IPGlobal.POST_CLIENT_TICK_EVENT.register(PortalCrossingSmoother::tick);
         
         IPCGlobal.CLIENT_CLEANUP_EVENT.register(() -> {
             lastPlayerEyePos = null;

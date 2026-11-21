@@ -10,13 +10,8 @@ import qouteall.imm_ptl.core.ducks.IEAbstractClientPlayer;
 
 @Mixin(AbstractClientPlayer.class)
 public class MixinAbstractClientPlayer implements IEAbstractClientPlayer {
-    @Shadow
-    @Final
-    @Mutable
-    public ClientLevel clientLevel;
-    
+    // since 26.x the client player has no separate client level reference (Entity.level is used)
     @Override
     public void ip_setClientLevel(ClientLevel clientWorld) {
-        clientLevel = clientWorld;
     }
 }

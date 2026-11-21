@@ -452,7 +452,7 @@ public class PortalDebugCommands {
             .requires(serverCommandSource -> qouteall.q_misc_util.MiscHelper.hasPermissionLevel(serverCommandSource, 2))
             .executes(context -> {
                 ServerLevel world = context.getSource().getLevel();
-                Iterable<ChunkHolder> chunkHolders = ((IEChunkMap_Accessor) world.getChunkSource().chunkMap).ip_getChunks();
+                Iterable<ChunkHolder> chunkHolders = ((IEChunkMap_Accessor) world.getChunkSource().chunkMap).ip_getVisibleChunkMap().values();
                 
                 Object2IntOpenHashMap<TicketType> stat = new Object2IntOpenHashMap<>();
                 for (ChunkHolder chunkHolder : chunkHolders) {
@@ -532,7 +532,7 @@ public class PortalDebugCommands {
 //            .requires(serverCommandSource -> serverCommandSource.hasPermission(2))
 //            .executes(context -> {
 //                ServerLevel world = context.getSource().getLevel();
-//                Iterable<ChunkHolder> chunkHolders = ((IEChunkMap_Accessor) world.getChunkSource().chunkMap).ip_getChunks();
+//                Iterable<ChunkHolder> chunkHolders = ((IEChunkMap_Accessor) world.getChunkSource().chunkMap).ip_getVisibleChunkMap().values();
 //
 //                Int2IntAVLTreeMap ticketLevelStat = new Int2IntAVLTreeMap();
 //                Int2IntAVLTreeMap queueLevelStat = new Int2IntAVLTreeMap();

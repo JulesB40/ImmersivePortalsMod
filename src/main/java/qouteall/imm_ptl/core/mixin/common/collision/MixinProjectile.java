@@ -11,26 +11,28 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(Projectile.class)
 public abstract class MixinProjectile extends MixinEntity {
     
+    @org.spongepowered.asm.mixin.Shadow
+    protected net.minecraft.world.entity.EntityReference<Entity> owner;
+    
     // make it recognize the owner in another dimension
-    @Redirect(
-        method = "getOwner",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/server/level/ServerLevel;getEntity(Ljava/util/UUID;)Lnet/minecraft/world/entity/Entity;"
-        )
-    )
-    private Entity redirectGetEntityFromUuid(
-        net.minecraft.server.level.ServerLevel serverLevel,
-        java.util.UUID uuid
-    ) {
+    @org.spongepowered.asm.mixin.injection.Inject(method = "getOwner", at = @At("RETURN"), cancellable = true)
+    private void onGetOwner(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Entity> cir) {
+        if (cir.getReturnValue() != null || owner == null) {
+            return;
+        }
+        Entity this_ = (Entity) (Object) this;
+        if (!(this_.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        java.util.UUID uuid = owner.getUUID();
         MinecraftServer server = serverLevel.getServer();
         for (ServerLevel world : server.getAllLevels()) {
             Entity entity = world.getEntity(uuid);
             if (entity != null) {
-                return entity;
+                cir.setReturnValue(entity);
+                return;
             }
         }
-        return null;
     }
     
 //    @Shadow

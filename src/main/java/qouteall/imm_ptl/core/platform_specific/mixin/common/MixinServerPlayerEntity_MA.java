@@ -16,28 +16,13 @@ import qouteall.imm_ptl.core.portal.custom_portal_gen.CustomPortalGenManager;
 
 @Mixin(ServerPlayer.class)
 public class MixinServerPlayerEntity_MA {
-    @Inject(method = "changeDimension", at = @At("HEAD"))
-    private void onChangeDimensionByVanilla(
-        TeleportTransition dimensionTransition, CallbackInfoReturnable<Entity> cir
+    // since 26.x, all the vanilla dimension changes of players go through teleport(TeleportTransition)
+    @Inject(method = "teleport(Lnet/minecraft/world/level/portal/TeleportTransition;)Lnet/minecraft/server/level/ServerPlayer;", at = @At("HEAD"))
+    private void onTeleport(
+        TeleportTransition transition, CallbackInfoReturnable<ServerPlayer> cir
     ) {
         ServerPlayer this_ = (ServerPlayer) (Object) this;
-        onBeforeDimensionTravel(this_);
-    }
-    
-    // update chunk visibility data
-    @Inject(method = "Lnet/minecraft/server/level/ServerPlayer;teleportTo(Lnet/minecraft/server/level/ServerLevel;DDDFF)V", at = @At("HEAD"))
-    private void onTeleported(
-        ServerLevel targetWorld,
-        double x,
-        double y,
-        double z,
-        float yaw,
-        float pitch,
-        CallbackInfo ci
-    ) {
-        ServerPlayer this_ = (ServerPlayer) (Object) this;
-        
-        if (this_.level() != targetWorld) {
+        if (transition.newLevel() != this_.level()) {
             onBeforeDimensionTravel(this_);
         }
     }

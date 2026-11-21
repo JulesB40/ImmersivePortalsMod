@@ -151,31 +151,34 @@ public abstract class MixinEntity implements IEEntity, ImmPtlEntityExtension {
         }
     }
     
-    @Redirect(
-        method = "Lnet/minecraft/world/entity/Entity;checkInsideBlocks()V",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/world/entity/Entity;getBoundingBox()Lnet/minecraft/world/phys/AABB;"
-        )
-    )
-    private AABB redirectBoundingBoxInCheckingBlockCollision(Entity entity) {
-        return ip_getActiveCollisionBox(entity.getBoundingBox());
-    }
-    
+    // only check the blocks on this side of the portal
     @Inject(
-        method = "checkInsideBlocks",
-        at = @At(
-            value = "INVOKE_ASSIGN",
-            target = "Lnet/minecraft/world/entity/Entity;getBoundingBox()Lnet/minecraft/world/phys/AABB;",
-            shift = At.Shift.AFTER
-        ),
-        locals = LocalCapture.CAPTURE_FAILHARD,
+        method = "checkInsideBlocks(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/entity/InsideBlockEffectApplier$StepBasedCollector;Lit/unimi/dsi/fastutil/longs/LongSet;I)I",
+        at = @At("HEAD"),
         cancellable = true
     )
-    private void onCheckInsideBlocks(CallbackInfo ci, AABB box) {
-        if (box == null) {
-            ci.cancel();
+    private void onCheckInsideBlocks(
+        Vec3 from, Vec3 to,
+        net.minecraft.world.entity.InsideBlockEffectApplier.StepBasedCollector effectCollector,
+        it.unimi.dsi.fastutil.longs.LongSet visitedBlocks, int maxMovementIterations,
+        org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Integer> cir
+    ) {
+        if (ip_getActiveCollisionBox(((Entity) (Object) this).getBoundingBox()) == null) {
+            cir.setReturnValue(0);
         }
+    }
+    
+    @Redirect(
+        method = "checkInsideBlocks(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/entity/InsideBlockEffectApplier$StepBasedCollector;Lit/unimi/dsi/fastutil/longs/LongSet;I)I",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/entity/Entity;makeBoundingBox(Lnet/minecraft/world/phys/Vec3;)Lnet/minecraft/world/phys/AABB;"
+        )
+    )
+    private AABB redirectBoundingBoxInCheckingBlockCollision(Entity entity, Vec3 pos) {
+        AABB box = entity.getBoundingBox().move(pos.subtract(entity.position()));
+        AABB active = ip_getActiveCollisionBox(box);
+        return active != null ? active : box;
     }
     
     // avoid suffocation when colliding with a portal on wall

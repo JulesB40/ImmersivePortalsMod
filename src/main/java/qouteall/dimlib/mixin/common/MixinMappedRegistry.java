@@ -25,9 +25,8 @@ public abstract class MixinMappedRegistry<T> implements IMappedRegistry {
     @Final
     private Map<Identifier, Holder.Reference<T>> byLocation;
     
-    @Shadow
-    @Final
-    private static Logger LOGGER;
+    @org.spongepowered.asm.mixin.Unique
+    private static final Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
     
     @Shadow
     public abstract @Nullable T byId(int id);

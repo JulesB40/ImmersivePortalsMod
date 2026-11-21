@@ -78,6 +78,8 @@ public class IPModMainClient {
         });
         
         DimensionIntId.initClient();
+        
+        qouteall.imm_ptl.core.debug.AutoTest.init();
     }
     
 }

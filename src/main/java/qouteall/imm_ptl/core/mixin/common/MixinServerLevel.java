@@ -37,21 +37,8 @@ public abstract class MixinServerLevel implements IEServerWorld {
     @Final
     private PersistentEntitySectionManager<Entity> entityManager;
     
-    //in vanilla if a dimension has no player and no forced chunks then it will not tick
-    @Redirect(
-        method = "Lnet/minecraft/server/level/ServerLevel;tick(Ljava/util/function/BooleanSupplier;)V",
-        at = @At(
-            value = "INVOKE",
-            target = "Ljava/util/List;isEmpty()Z"
-        )
-    )
-    private boolean redirectIsEmpty(List list) {
-        final ServerLevel this_ = (ServerLevel) (Object) this;
-        if (ImmPtlChunkTracking.shouldLoadDimension(this_.dimension())) {
-            return false;
-        }
-        return list.isEmpty();
-    }
+    // in vanilla, a dimension with no player and no active ticket stops ticking entities.
+    // the ImmPtl chunk ticket type keeps the dimension active (FLAG_KEEP_DIMENSION_ACTIVE), so no hook is needed
     
     // for debug
     @Inject(method = "Lnet/minecraft/server/level/ServerLevel;toString()Ljava/lang/String;", at = @At("HEAD"), cancellable = true)

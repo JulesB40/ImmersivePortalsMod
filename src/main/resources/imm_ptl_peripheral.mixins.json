@@ -13,7 +13,6 @@
   ],
   "client": [
     "client.MixinBossHealthOverlay_CVB",
-    "client.MixinSplashManager_CVB",
     "client.dim_stack.MixinCreateWorldScreen_CVB",
     "client.dim_stack.MixinCreateWorldScreenMoreTab_CVB",
     "client.portal_wand.MixinDebugRenderer",
@@ -21,5 +20,6 @@
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "server": []
 }

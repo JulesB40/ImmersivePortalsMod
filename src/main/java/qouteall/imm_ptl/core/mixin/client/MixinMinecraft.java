@@ -37,9 +37,6 @@ import java.util.function.Function;
 
 @Mixin(Minecraft.class)
 public abstract class MixinMinecraft implements IEMinecraftClient {
-    @Shadow
-    public Screen screen;
-    
     @Mutable
     @Shadow
     @Final
@@ -62,18 +59,6 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
     private static Logger LOGGER;
     
     @Shadow private Thread gameThread;
-    
-    @WrapOperation(
-        method = "Lnet/minecraft/client/Minecraft;run()V",
-        at = @At(
-            value = "INVOKE",
-            target = "Ljava/lang/Thread;currentThread()Ljava/lang/Thread;"
-        )
-    )
-    private Thread testMixinExtra(Operation<Thread> original) {
-        LOGGER.info("[ImmPtl] MixinExtra is working!");
-        return original.call();
-    }
     
     /**
      * The whole process involving portal animation and teleportation:
@@ -134,7 +119,7 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
     }
     
     @Inject(
-        method = "Lnet/minecraft/client/Minecraft;runTick(Z)V",
+        method = "renderFrame(Z)V",
         at = @At(
             value = "FIELD",
             target = "Lnet/minecraft/client/Minecraft;fps:I",
@@ -168,7 +153,7 @@ public abstract class MixinMinecraft implements IEMinecraftClient {
     
     @Override
     public Screen ip_getCurrentScreen() {
-        return screen;
+        return ((net.minecraft.client.Minecraft) (Object) this).gui.screen();
     }
     
     @Override

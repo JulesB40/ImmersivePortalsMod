@@ -123,6 +123,8 @@ public abstract class MixinClientLevel implements IEClientWorld {
                 }
             }
         }
+        // after the old instance (in the other world) is removed and its state is recorded
+        qouteall.imm_ptl.core.teleportation.PortalCrossingSmoother.onEntityAdded((ClientLevel) (Object) this, entityIn);
     }
     
     /**
@@ -141,6 +143,14 @@ public abstract class MixinClientLevel implements IEClientWorld {
             if (chunk == null || chunk instanceof EmptyLevelChunk) {
                 cir.setReturnValue(false);
             }
+        }
+    }
+    
+    @Inject(method = "removeEntity", at = @At("HEAD"))
+    private void onRemoveEntity(int id, Entity.RemovalReason reason, CallbackInfo ci) {
+        Entity entity = getEntity(id);
+        if (entity != null) {
+            qouteall.imm_ptl.core.teleportation.PortalCrossingSmoother.onEntityRemoved((ClientLevel) (Object) this, entity);
         }
     }
     

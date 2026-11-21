@@ -18,19 +18,24 @@ import java.util.List;
 @Mixin(ContainerOpenersCounter.class)
 public abstract class MixinContainerOpenersCounter {
     @Shadow
-    protected abstract boolean isOwnContainer(Player player);
+    protected abstract boolean hasContainerOpen(net.minecraft.world.entity.Entity entity, BlockPos blockPos);
     
     // the container could be opened via portal. the player could be anywhere in any dimension
     // check all players
-    @Inject(method = "getPlayersWithContainerOpen", at = @At("HEAD"), cancellable = true)
-    private void getOpenCount(Level level, BlockPos pos, CallbackInfoReturnable<List<Player>> cir) {
-        List<Player> list = new ArrayList<>();
+    @Inject(method = "getEntitiesWithContainerOpen", at = @At("HEAD"), cancellable = true)
+    private void getOpenCount(
+        Level level, BlockPos pos,
+        CallbackInfoReturnable<List<net.minecraft.world.entity.ContainerUser>> cir
+    ) {
+        List<net.minecraft.world.entity.ContainerUser> list = new ArrayList<>();
         
         MinecraftServer server = level.getServer();
-        assert server != null;
+        if (server == null) {
+            return;
+        }
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (isOwnContainer(player)) {
-                list.add(player);
+            if (hasContainerOpen(player, pos)) {
+                list.add((net.minecraft.world.entity.ContainerUser) player);
             }
         }
         
